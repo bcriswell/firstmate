@@ -2530,6 +2530,89 @@ fm_backend_herdr_current_path() {  # <target>
     | jq -r '.result.pane.foreground_cwd // empty' 2>/dev/null
 }
 
+fm_backend_herdr_shell_quote_word() {  # <word>
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
+# fm_backend_herdr_relaunch_reroot: move one exact, positively agent-free
+# Herdr endpoint back to its recorded worktree before a replacement launch.
+# This is deliberately narrower than an ordinary send: the pane must still be
+# the exact target, native agent state must say no-agent, and the foreground
+# process must be one proved lone idle shell. Ctrl+U clears any unsubmitted
+# shell input before the quoted cd, then native state, shell pid, and physical
+# cwd are rechecked. Any ambiguous read or identity change refuses.
+fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
+  local target=$1 worktree=$2 session pane expected state shell_pid resampled command
+  local seen seen_real attempt=0
+  case "$worktree" in
+    ''|*$'\n'*|*$'\r'*)
+      echo "error: recorded worktree is not representable as one Herdr shell command" >&2
+      return 1
+      ;;
+  esac
+  expected=$(cd -- "$worktree" 2>/dev/null && pwd -P) || {
+    echo "error: recorded worktree '$worktree' cannot be resolved for Herdr relaunch" >&2
+    return 1
+  }
+  fm_backend_herdr_parse_target "$target" || {
+    echo "error: Herdr relaunch target '$target' is malformed" >&2
+    return 1
+  }
+  session=$FM_BACKEND_HERDR_SESSION
+  pane=$FM_BACKEND_HERDR_PANE
+  state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+  [ "$state" = no-agent ] || {
+    echo "error: Herdr relaunch endpoint $target is '$state', not positively agent-free; refusing to change its shell directory" >&2
+    return 1
+  }
+  shell_pid=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane") || {
+    echo "error: Herdr relaunch endpoint $target is not one provably idle shell; refusing to change its directory" >&2
+    return 1
+  }
+  fm_backend_herdr_cli "$session" pane send-keys "$pane" ctrl+u >/dev/null 2>&1 || {
+    echo "error: could not clear the proved idle shell at Herdr relaunch endpoint $target" >&2
+    return 1
+  }
+  state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$session" "$pane" 2>/dev/null || true)
+  [ "$state" = no-agent ] && [ "$resampled" = "$shell_pid" ] || {
+    echo "error: Herdr relaunch endpoint $target changed identity while preparing its shell; refusing to run cd" >&2
+    return 1
+  }
+  command="cd -- $(fm_backend_herdr_shell_quote_word "$worktree")"
+  fm_backend_herdr_cli "$session" pane run "$pane" "$command" >/dev/null 2>&1 || {
+    echo "error: could not re-root Herdr relaunch endpoint $target in its recorded worktree" >&2
+    return 1
+  }
+  while [ "$attempt" -lt 10 ]; do
+    state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+    [ "$state" = no-agent ] || {
+      echo "error: Herdr relaunch endpoint $target became '$state' while re-rooting; refusing replacement launch" >&2
+      return 1
+    }
+    seen=$(fm_backend_herdr_current_path "$target" || true)
+    seen_real=
+    if [ -n "$seen" ]; then
+      seen_real=$(cd -- "$seen" 2>/dev/null && pwd -P) || seen_real=
+    fi
+    if [ "$seen_real" = "$expected" ]; then
+      resampled=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane" 2>/dev/null || true)
+      state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+      [ "$resampled" = "$shell_pid" ] && [ "$state" = no-agent ] || {
+        echo "error: Herdr relaunch endpoint $target changed identity after re-rooting; refusing replacement launch" >&2
+        return 1
+      }
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    [ "$attempt" -ge 10 ] || sleep 0.1
+  done
+  echo "error: Herdr relaunch endpoint $target did not settle in recorded worktree '$worktree' (observed '${seen:-unknown}')" >&2
+  return 1
+}
+
 # fm_backend_herdr_send_text_line: send one line of TEXT then submit,
 # ATOMICALLY - mirrors tmux's `send-keys -t T text Enter`. Used for the fixed
 # spawn-time commands (treehouse get, the GOTMPDIR export). `pane run` types

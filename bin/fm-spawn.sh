@@ -29,9 +29,11 @@
 #   model, and effort may change, which is what makes a harness switch one
 #   ordinary relaunch. It refuses unless the recorded endpoint is positively
 #   agent-free on a backend with a recovery-grade agent-state classifier (tmux
-#   or herdr), refuses unless the endpoint's shell is sitting in the recorded
-#   worktree, and clears the previous harness's per-task wiring before arming
-#   the new incarnation.
+#   or herdr). A Herdr endpoint that is positively agent-free but has drifted
+#   is re-rooted only when its foreground process is one proved idle shell; an
+#   already-rooted endpoint is unchanged, and every other wrong-cwd or ambiguous
+#   endpoint refuses. The previous harness's per-task wiring is cleared before
+#   the new incarnation is armed.
 #   --harness <name> is the explicit per-spawn harness/profile adapter. The old
 #   positional harness arg still works for back-compat.
 #   --model <name> and --effort <low|medium|high|xhigh|max> are concrete profile
@@ -1709,6 +1711,17 @@ real_path_or_raw() {  # <path>
 # herdr-sm-spaces-k4). Both branches converge on the same $T ("target") string
 # that every downstream operation (send/capture/kill) already treats as opaque
 # per-backend routing (fm_backend_resolve_selector).
+validate_recorded_worktree_root() {  # <source> <inspect-target>
+  local source=$1 inspect_target=$2 wt_real wt_top wt_top_real
+  wt_real=$(cd "$WT" 2>/dev/null && pwd -P) || wt_real=
+  wt_top=$(git -C "$WT" rev-parse --show-toplevel 2>/dev/null || true)
+  wt_top_real=$(cd "$wt_top" 2>/dev/null && pwd -P) || wt_top_real=
+  if [ -z "$wt_real" ] || [ -z "$wt_top_real" ] || [ "$wt_real" != "$wt_top_real" ]; then
+    echo "error: $source did not yield an exact worktree root (resolved '$WT'; worktree root '${wt_top:-none}'); refusing to launch. Inspect target $inspect_target" >&2
+    exit 1
+  fi
+}
+
 validate_spawn_worktree() {  # <source> <inspect-target>
   local source=$1 inspect_target=$2 wt_real proj_real wt_top wt_top_real
   wt_real=
@@ -2195,10 +2208,15 @@ kimi_spawn_fail() {  # <detail>
 }
 
 if [ "$RELAUNCH" -eq 1 ]; then
-  # No worktree is acquired: the recorded one is reused as-is. What must be
-  # proven instead is that the adopted endpoint's shell is actually sitting in
-  # that worktree, so the replacement agent starts where the work is rather
-  # than wherever the pane happened to drift.
+  # No worktree is acquired: the recorded one is reused as-is. Validate that
+  # recorded root before any endpoint mutation. An already-rooted endpoint is
+  # accepted unchanged. Herdr alone can safely recover a drifted endpoint: its
+  # adapter proves the exact pane is agent-free and holds one idle shell, clears
+  # unsubmitted shell input, runs an injection-safe cd, and verifies both cwd
+  # and native agent state before this launch continues. Every ambiguity and
+  # every other backend's wrong cwd retains the existing refusal.
+  validate_recorded_worktree_root "relaunch" "$T"
+  [ "$KIND" = secondmate ] || validate_spawn_worktree "relaunch" "$T"
   relaunch_wt_real=$(real_path_or_raw "$WT")
   relaunch_seen=
   for _ in $(seq 1 10); do
@@ -2206,11 +2224,23 @@ if [ "$RELAUNCH" -eq 1 ]; then
     [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ] || break
     sleep 0.5
   done
+  if { [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ]; } \
+     && [ "$BACKEND" = herdr ]; then
+    fm_backend_herdr_relaunch_reroot "$WT_TARGET" "$WT" || {
+      echo "error: task $ID's agent-free Herdr endpoint could not be safely re-rooted in recorded worktree '$WT'; refusing replacement launch" >&2
+      exit 1
+    }
+    relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
+  fi
   if [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ]; then
     echo "error: task $ID's endpoint is in '${relaunch_seen:-unknown}', not its recorded worktree '$WT'; refusing to relaunch an agent outside the copy holding its work" >&2
     exit 1
   fi
-  [ "$KIND" = secondmate ] || validate_spawn_worktree "relaunch" "$T"
+  RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
+  [ "$RELAUNCH_STATE" = dead ] || {
+    echo "error: task $ID's endpoint changed to '$RELAUNCH_STATE' while preparing the relaunch; refusing replacement launch" >&2
+    exit 1
+  }
 elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   spawn_send_text_line "$WT_TARGET" 'treehouse get'
 

@@ -577,24 +577,36 @@ Polling remained active and is covered as the fallback for capability, connect, 
 
 ### Agent lifecycle control
 
-Herdr is one of the two backends whose recovery-grade agent-state classifier the control plane may trust ([agent-control.md](../agent-control.md)), so its lifecycle gating is measured against the real binary; reverified 2026-08-08 on Herdr 0.8.0, and first measured 2026-08-02 on Herdr 0.7.5 with identical results:
+Herdr is one of the two backends whose recovery-grade agent-state classifier the control plane may trust ([agent-control.md](../agent-control.md)), so its lifecycle gating is measured against the real binary.
+The current result was verified on 2026-08-12 with Herdr 0.8.0 and the portable transaction suite, and the original lifecycle cases were first measured on 2026-08-02 with Herdr 0.7.5.
 
 ```sh
-tests/fm-control-herdr-smoke.test.sh
+tests/fm-control-relaunch.test.sh
+HERDR_LAB_HELPER=bin/fm-herdr-lab.sh tests/fm-control-herdr-smoke.test.sh
 ```
 
-Observed output:
+Observed bounded output:
 
 ```text
+ok - fm-control relaunch: a stopped Herdr worker recovers from post-exit cwd drift in the same endpoint and worktree
+ok - fm-spawn --relaunch: Herdr cwd recovery shell-quotes spaces, metacharacters, command substitution, and a single quote
+ok - fm-spawn --relaunch: live agents and ambiguous Herdr shells retain the refusal
+ok - fm-spawn --relaunch: endpoint and worktree identity ambiguity refuses before Herdr mutation
+ok - fm-spawn --relaunch: liveness races and failed cwd postconditions refuse replacement launch
 ok - real herdr: exit on a pane with no registered agent is idempotent success
 ok - real herdr: interrupt refuses when herdr's own agent registry reports no agent
+ok - real herdr: an exact agent-free endpoint safely re-roots to an injection-resistant recorded worktree before replacement launch
 ok - real herdr: interrupt delivers the harness's key and proves the agent survived it
 ok - real herdr: no control verb removed the endpoint or the task's local copy
 ok - real herdr: an agent that does not stop fails closed instead of being reported as stopped
 ```
 
 The registry read through `herdr pane report-agent` is the same source `fm_backend_herdr_agent_state` classifies, so registering and not registering an agent on a plain shell pane exercises exactly the gate every lifecycle verb depends on, with no real agent launched.
-That command is the guard that refreshes this record; run it after every Herdr upgrade rather than trusting the version above.
+The cwd-recovery case executes the real shell command in a named non-default lab against a path containing spaces, shell metacharacters, command substitution text, and a single quote, then proves both the launch cwd and exact pane cwd match the physical recorded worktree while no injected marker exists.
+The portable public-interface cases additionally drive the complete stop-then-relaunch transaction and every refusal that the real smoke should not destructively manufacture.
+Backend applicability was reviewed across all five spawn adapters: tmux retains its direct wrong-worktree refusal; zellij, Orca, and cmux remain ineligible for relaunch because they still lack recovery-grade agent-state classification; only Herdr owns the new idle-shell re-root primitive.
+Claude, Codex, OpenCode, Pi, pi-signed, Grok, Kimi, and Muse all inherit the verified endpoint cwd before their unchanged launch templates run, so no harness-specific launch or lifecycle mechanic changed.
+These commands are the guards that refresh this record; run them after every Herdr upgrade rather than trusting the version above.
 
 ### Away-mode transport
 

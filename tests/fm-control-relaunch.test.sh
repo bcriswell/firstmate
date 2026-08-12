@@ -17,6 +17,9 @@
 #   6. fm-spawn --relaunch refuses on its own: a live agent, a contradicting
 #      flag, an extra positional, or a backend that cannot prove the previous
 #      agent exited.
+#   7. A positively agent-free Herdr shell that drifted away from the recorded
+#      worktree is safely re-rooted, while identity, state, shell, worktree, and
+#      post-mutation ambiguity retain the refusal.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -122,6 +125,116 @@ SH
   chmod +x "$fb/sleep"
 }
 
+# Stateful Herdr CLI stub for public fm-control/fm-spawn relaunch coverage.
+# It models the native pane/agent reads, one idle shell, literal submit, and
+# pane run closely enough to execute the real adapter's identity and cwd gates.
+make_herdr_stub() {  # <dir>
+  local fb="$1/fakebin"
+  mkdir -p "$fb"
+  cat > "$fb/herdr" <<'SH'
+#!/usr/bin/env bash
+set -u
+D=$FM_FAKE_DIR
+args=("$@")
+argc=${#args[@]}
+if [ "$argc" -ge 2 ] && [ "${args[$((argc - 2))]}" = --session ]; then
+  unset 'args[argc-1]' 'args[argc-2]'
+fi
+set -- "${args[@]}"
+{
+  first=1
+  for arg in "$@"; do
+    [ "$first" = 1 ] || printf '\037'
+    printf '%s' "$arg"
+    first=0
+  done
+  printf '\n'
+} >> "$D/herdr.log"
+case "${1:-} ${2:-}" in
+  "status --json")
+    printf '%s\n' '{"client":{"protocol":19,"version":"0.8.0"},"server":{"running":true,"protocol":19,"version":"0.8.0"}}'
+    ;;
+  "pane get")
+    if [ "$(cat "$D/agent")" = missing ]; then
+      printf '%s\n' '{"error":{"code":"pane_not_found"}}'
+    else
+      jq -cn --arg pane w1:p1 --arg cwd "$(cat "$D/cwd")" \
+        '{result:{pane:{pane_id:$pane,foreground_cwd:$cwd}}}'
+    fi
+    ;;
+  "agent get")
+    case "$(cat "$D/agent")" in
+      live) printf '%s\n' '{"result":{"agent":{"agent_status":"idle"}}}' ;;
+      dead) printf '%s\n' '{"error":{"code":"agent_not_found"}}' ;;
+      *) printf '%s\n' '{}' ;;
+    esac
+    ;;
+  "pane process-info")
+    shell_pid=$(cat "$D/shell-pid")
+    if [ "$(cat "$D/shell")" = idle ]; then
+      jq -cn --argjson pid "$shell_pid" \
+        '{result:{type:"pane_process_info",process_info:{pane_id:"w1:p1",shell_pid:$pid,foreground_process_group_id:$pid,foreground_processes:[{pid:$pid,name:"zsh",argv0:"-zsh"}]}}}'
+    else
+      jq -cn --argjson pid "$shell_pid" \
+        '{result:{type:"pane_process_info",process_info:{pane_id:"w1:p1",shell_pid:$pid,foreground_process_group_id:5252,foreground_processes:[{pid:5252,name:"sleep",argv0:"sleep"}]}}}'
+    fi
+    ;;
+  "pane send-text")
+    printf '%s' "${4:-}" > "$D/pending"
+    ;;
+  "pane send-keys")
+    case "${4:-}" in
+      ctrl+u)
+        : > "$D/pending"
+        if [ -e "$D/flip-live-on-clear" ]; then
+          printf 'live' > "$D/agent"
+        fi
+        ;;
+      enter)
+        payload=$(cat "$D/pending")
+        printf '%s\n' "$payload" >> "$D/submitted"
+        : > "$D/pending"
+        case "$payload" in
+          /exit|/quit)
+            printf 'dead' > "$D/agent"
+            [ ! -f "$D/exit-cwd" ] || cp "$D/exit-cwd" "$D/cwd"
+            ;;
+          ?*) printf 'live' > "$D/agent" ;;
+        esac
+        ;;
+    esac
+    ;;
+  "pane run")
+    payload=${4:-}
+    printf '%s\n' "$payload" >> "$D/run-commands"
+    case "$payload" in
+      "cd -- "*)
+        if [ ! -e "$D/ignore-reroot" ]; then
+          next=$(cd "$(cat "$D/cwd")" && bash -c "$payload; pwd -P") || exit 1
+          printf '%s' "$next" > "$D/cwd"
+        fi
+        [ ! -e "$D/flip-shell-on-run" ] || printf '4343' > "$D/shell-pid"
+        ;;
+    esac
+    ;;
+  *)
+    printf '%s\n' '{}'
+    ;;
+esac
+SH
+  chmod +x "$fb/herdr"
+  cat > "$fb/ps" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  '-axo pid=,ppid=') printf '%s\n' '4242 1' '4343 1' ;;
+  '-p 4242 -o stat='|'-p 4343 -o stat=') printf '%s\n' 'S' ;;
+  '-p 4242 -o comm='|'-p 4343 -o comm=') printf '%s\n' 'zsh' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fb/ps"
+}
+
 # new_case <name> [id] -> echoes a case dir with a live claude ship task.
 new_case() {
   local id=${2:-t1} dir="$TMP_ROOT/$1-$RANDOM"
@@ -160,6 +273,47 @@ add_ship_task() {
   TASK_TMPS+=("/tmp/fm-$id")
 }
 
+add_herdr_ship_task() {  # <case-dir> <id> [worktree-path]
+  local dir=$1 id=$2 wt=${3:-$1/wt}
+  make_herdr_stub "$dir"
+  fm_git_worktree "$dir/proj" "$wt" "task-$id"
+  mkdir -p "$dir/home/data/$id"
+  printf '# brief for %s\n\nDo the thing.\n' "$id" > "$dir/home/data/$id/brief.md"
+  {
+    echo "window=labses:w1:p1"
+    echo "endpoint_task_id=$id"
+    echo "worktree=$wt"
+    echo "project=$dir/proj"
+    echo "harness=claude"
+    echo "kind=ship"
+    echo "mode=no-mistakes"
+    echo "yolo=off"
+    echo "tasktmp=$dir/tasktmp-$id"
+    echo "model=default"
+    echo "effort=default"
+    echo "backend=herdr"
+    echo "herdr_session=labses"
+    echo "herdr_workspace_id=w1"
+    echo "herdr_tab_id=w1:t1"
+    echo "herdr_pane_id=w1:p1"
+  } > "$dir/home/state/$id.meta"
+  printf 'live' > "$dir/fake/agent"
+  printf 'idle' > "$dir/fake/shell"
+  printf '4242' > "$dir/fake/shell-pid"
+  printf '%s' "$wt" > "$dir/fake/cwd"
+  : > "$dir/fake/herdr.log"
+  : > "$dir/fake/pending"
+  : > "$dir/fake/run-commands"
+  : > "$dir/fake/submitted"
+}
+
+new_herdr_case() {  # <name> <id>
+  local name=$1 id=$2 dir
+  dir=$(new_case "$name" "$id")
+  add_herdr_ship_task "$dir" "$id"
+  printf '%s\n' "$dir"
+}
+
 run_control() {  # <case-dir> <args...>
   local dir=$1; shift
   env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
@@ -171,6 +325,7 @@ run_control() {  # <case-dir> <args...>
     FM_FAKE_TRACE_PREPARE="${FM_FAKE_TRACE_PREPARE:-}" \
     FM_FAKE_META_WRITER_READY="${FM_FAKE_META_WRITER_READY:-}" \
     FM_FAKE_TRACE_EXPORTED="${FM_FAKE_TRACE_EXPORTED:-}" \
+    FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 \
     "$CONTROL" "$@" 2>&1
 }
 
@@ -178,6 +333,7 @@ run_spawn() {  # <case-dir> <args...>
   local dir=$1; shift
   env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
+    FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 \
     "$SPAWN" "$@" 2>&1
 }
 
@@ -1307,9 +1463,146 @@ test_spawn_relaunch_refuses_a_pane_outside_the_worktree() {
   printf 'zsh' > "$dir/fake/command"
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
   out=$(run_spawn "$dir" rl18 --relaunch --harness claude); rc=$?
-  expect_code 1 "$rc" "a pane outside the worktree should refuse"
+  expect_code 1 "$rc" "a tmux pane outside the worktree should refuse"
   assert_contains "$out" "not its recorded worktree" "the refusal should name the wrong location"
-  pass "fm-spawn --relaunch: refuses to start a replacement outside the copy holding the work"
+  pass "fm-spawn --relaunch: tmux retains the wrong-copy refusal"
+}
+
+# The operator-visible incident: control positively stops the old Herdr agent,
+# the exposed shell returns to its creation directory, and the launch half must
+# recover that exact agent-free endpoint instead of preserving a task with no
+# replacement agent.
+test_herdr_control_relaunch_recovers_post_exit_cwd_drift() {
+  local dir out rc wt_real cwd_real
+  dir=$(new_herdr_case herdr-control-drift hr1)
+  printf '%s' "$dir/proj" > "$dir/fake/exit-cwd"
+  out=$(run_control "$dir" hr1 relaunch --note "continue after the stopped worker"); rc=$?
+  expect_code 0 "$rc" "Herdr control relaunch should recover post-exit cwd drift"$'\n'"$out"
+  assert_contains "$out" "relaunched hr1 harness=claude" \
+    "the end-to-end control path should confirm the replacement"
+  wt_real=$(cd "$dir/wt" && pwd -P)
+  cwd_real=$(cd "$(cat "$dir/fake/cwd")" && pwd -P)
+  [ "$cwd_real" = "$wt_real" ] || fail "the drifted Herdr endpoint did not settle in its recorded worktree"
+  [ "$(cat "$dir/fake/agent")" = live ] || fail "the replacement agent did not start after Herdr cwd recovery"
+  [ "$(meta_field "$dir" hr1 window)" = "labses:w1:p1" ] \
+    || fail "Herdr cwd recovery changed the exact recorded endpoint"
+  assert_grep "cd -- " "$dir/fake/run-commands" \
+    "the post-exit Herdr shell should be deliberately re-rooted"
+  pass "fm-control relaunch: a stopped Herdr worker recovers from post-exit cwd drift in the same endpoint and worktree"
+}
+
+# A proven path that was never failing: an already-rooted agent-free endpoint
+# launches without a redundant shell mutation.
+test_herdr_spawn_relaunch_leaves_an_already_rooted_endpoint_unchanged() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-rooted hr2)
+  printf 'dead' > "$dir/fake/agent"
+  out=$(run_spawn "$dir" hr2 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "an already-rooted Herdr relaunch should succeed"$'\n'"$out"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" \
+    "an already-rooted Herdr endpoint should not be re-rooted"
+  pass "fm-spawn --relaunch: the proven already-rooted Herdr path is unchanged"
+}
+
+# The path is deliberately hostile to shell composition. The fake Herdr pane
+# executes the real adapter's cd command through bash, so either marker appears
+# if quoting regresses rather than merely asserting the command's source text.
+test_herdr_spawn_relaunch_reroots_an_injection_resistant_path() {
+  local dir wt out rc wt_real cwd_real
+  dir=$(new_case herdr-injection hr3)
+  wt="$dir/wt space; touch HERDR_INJECTED; quote ' \$(touch HERDR_SUBSTITUTED)"
+  add_herdr_ship_task "$dir" hr3 "$wt"
+  printf 'dead' > "$dir/fake/agent"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  out=$(run_spawn "$dir" hr3 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "a hostile but valid worktree path should relaunch safely"$'\n'"$out"
+  wt_real=$(cd "$wt" && pwd -P)
+  cwd_real=$(cd "$(cat "$dir/fake/cwd")" && pwd -P)
+  [ "$cwd_real" = "$wt_real" ] || fail "the injection-resistant path did not become the exact endpoint cwd"
+  [ ! -e "$dir/proj/HERDR_INJECTED" ] || fail "the semicolon-bearing worktree path executed injected shell text"
+  [ ! -e "$dir/proj/HERDR_SUBSTITUTED" ] || fail "the worktree path executed command substitution"
+  pass "fm-spawn --relaunch: Herdr cwd recovery shell-quotes spaces, metacharacters, command substitution, and a single quote"
+}
+
+test_herdr_spawn_relaunch_refuses_live_and_ambiguous_endpoints() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-live-refuse hr4)
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  out=$(run_spawn "$dir" hr4 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "a live Herdr agent should refuse before cwd recovery"
+  assert_contains "$out" "positively agent-free endpoint" "the live refusal should retain duplicate-agent protection"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" "a live endpoint must receive no cwd command"
+
+  dir=$(new_herdr_case herdr-shell-refuse hr5)
+  printf 'dead' > "$dir/fake/agent"
+  printf 'busy' > "$dir/fake/shell"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  out=$(run_spawn "$dir" hr5 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an agent-free but non-idle Herdr pane should refuse"
+  assert_contains "$out" "not one provably idle shell" "the ambiguous-shell refusal should name its missing proof"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" "an ambiguous shell must receive no cwd command"
+  pass "fm-spawn --relaunch: live agents and ambiguous Herdr shells retain the refusal"
+}
+
+test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutation() {
+  local dir out rc meta
+  dir=$(new_herdr_case herdr-identity-refuse hr6)
+  printf 'dead' > "$dir/fake/agent"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  meta="$dir/home/state/hr6.meta"
+  sed 's/^endpoint_task_id=hr6$/endpoint_task_id=someone-else/' "$meta" > "$meta.tmp"
+  mv "$meta.tmp" "$meta"
+  : > "$dir/fake/herdr.log"
+  out=$(run_spawn "$dir" hr6 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "a task-mismatched Herdr endpoint should refuse"
+  assert_contains "$out" "belongs to task someone-else, not hr6" "the endpoint identity refusal should name the mismatch"
+  [ ! -s "$dir/fake/herdr.log" ] || fail "endpoint identity ambiguity reached the Herdr runtime"
+
+  dir=$(new_herdr_case herdr-worktree-refuse hr7)
+  printf 'dead' > "$dir/fake/agent"
+  meta="$dir/home/state/hr7.meta"
+  sed "s|^worktree=.*$|worktree=$dir/proj|" "$meta" > "$meta.tmp"
+  mv "$meta.tmp" "$meta"
+  printf '%s' "$TMP_ROOT" > "$dir/fake/cwd"
+  : > "$dir/fake/run-commands"
+  out=$(run_spawn "$dir" hr7 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "a primary-checkout worktree identity should refuse"
+  assert_contains "$out" "did not yield an isolated worktree" "the worktree refusal should name lost isolation"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" "an invalid recorded worktree must receive no cwd command"
+  pass "fm-spawn --relaunch: endpoint and worktree identity ambiguity refuses before Herdr mutation"
+}
+
+test_herdr_spawn_relaunch_refuses_identity_change_and_unverified_reroot() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-race-refuse hr8)
+  printf 'dead' > "$dir/fake/agent"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  : > "$dir/fake/flip-live-on-clear"
+  out=$(run_spawn "$dir" hr8 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an endpoint that becomes live during cwd recovery should refuse"
+  assert_contains "$out" "changed identity" "the liveness race refusal should name the changed identity"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" "a changed endpoint identity must receive no cwd command"
+
+  dir=$(new_herdr_case herdr-shell-race-refuse hr10)
+  printf 'dead' > "$dir/fake/agent"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  : > "$dir/fake/flip-shell-on-run"
+  out=$(run_spawn "$dir" hr10 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an endpoint whose shell changes during cwd recovery should refuse"
+  assert_contains "$out" "changed identity after re-rooting" \
+    "the shell-pid race refusal should name the failed final identity proof"
+  [ "$(cat "$dir/fake/agent")" = dead ] || fail "a changed shell identity should not launch a replacement"
+
+  dir=$(new_herdr_case herdr-settle-refuse hr9)
+  printf 'dead' > "$dir/fake/agent"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  : > "$dir/fake/ignore-reroot"
+  out=$(run_spawn "$dir" hr9 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an unverified Herdr cwd change should refuse"
+  assert_contains "$out" "did not settle in recorded worktree" "the failed postcondition should name the observed mismatch"
+  [ "$(cat "$dir/fake/agent")" = dead ] || fail "a failed reroot should not launch a replacement"
+  assert_no_grep "encode launch-brief" "$dir/fake/submitted" "an unverified reroot must not submit a launch"
+  pass "fm-spawn --relaunch: liveness races and failed cwd postconditions refuse replacement launch"
 }
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
@@ -1358,3 +1651,9 @@ test_spawn_relaunch_refuses_a_live_agent
 test_spawn_relaunch_refuses_contradicting_flags
 test_spawn_relaunch_refuses_an_unrecorded_task
 test_spawn_relaunch_refuses_a_pane_outside_the_worktree
+test_herdr_control_relaunch_recovers_post_exit_cwd_drift
+test_herdr_spawn_relaunch_leaves_an_already_rooted_endpoint_unchanged
+test_herdr_spawn_relaunch_reroots_an_injection_resistant_path
+test_herdr_spawn_relaunch_refuses_live_and_ambiguous_endpoints
+test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutation
+test_herdr_spawn_relaunch_refuses_identity_change_and_unverified_reroot

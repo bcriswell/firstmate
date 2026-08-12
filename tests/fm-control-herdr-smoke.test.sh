@@ -13,9 +13,8 @@
 # the adapter reads, so registering and not registering an agent on a plain
 # shell pane exercises exactly the classification the control plane gates on.
 #
-# Always runs on a private, named, throwaway lab session, never the default
-# one (tests/herdr-test-safety.sh; the 2026-07-02 incident). Skips cleanly
-# when herdr or jq is missing.
+# Always runs through bin/fm-herdr-lab.sh on a private, named, throwaway
+# session, never the default one. Skips cleanly when herdr or jq is missing.
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,19 +25,23 @@ pass() { printf 'ok - %s\n' "$1"; }
 command -v herdr >/dev/null 2>&1 || { echo "skip: herdr not found"; exit 0; }
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found (required by the herdr adapter)"; exit 0; }
 
-# shellcheck source=tests/herdr-test-safety.sh
-. "$ROOT/tests/herdr-test-safety.sh"
-herdr_forget_inherited_pane
-
-SESSION="fm-lab-control-smoke-$$"
+HERDR_LAB_HELPER=${HERDR_LAB_HELPER:-$ROOT/bin/fm-herdr-lab.sh}
+[ -x "$HERDR_LAB_HELPER" ] || { printf 'not ok - Herdr lab helper is not executable: %s\n' "$HERDR_LAB_HELPER" >&2; exit 1; }
+SESSION=$("$HERDR_LAB_HELPER" name fm-control-smoke) || { echo "not ok - could not generate isolated Herdr lab session name" >&2; exit 1; }
+unset HERDR_ENV HERDR_PANE_ID HERDR_SOCKET_PATH HERDR_TAB_ID HERDR_WORKSPACE_ID
 export HERDR_SESSION="$SESSION"
 SCRATCH=
+LAB_OWNED=0
 cleanup_all() {
+  if [ "$LAB_OWNED" = 1 ]; then
+    LAB_OWNED=0
+    "$HERDR_LAB_HELPER" teardown "$SESSION"
+  fi
   [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"
-  herdr_safe_stop_and_delete "$SESSION"
 }
 trap cleanup_all EXIT
-fm_herdr_lab_prepare "$SESSION" || fail "could not prepare isolated Herdr lab session"
+LAB_OWNED=1
+"$HERDR_LAB_HELPER" provision "$SESSION" || fail "could not provision isolated Herdr lab session"
 
 SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/fm-control-herdr.XXXXXX")
 SCRATCH=$(cd "$SCRATCH" && pwd)
@@ -113,10 +116,62 @@ case "$OUT" in
 esac
 pass "real herdr: interrupt refuses when herdr's own agent registry reports no agent"
 
+# --- an agent-free endpoint drifted outside its recorded worktree -----------
+
+REROOT_ID=hreroot
+REROOT_WT="$SCRATCH/wt space; touch HERDR_INJECTED; quote ' \$(touch HERDR_SUBSTITUTED)"
+git -C "$PROJ" worktree add --quiet -b hreroot "$REROOT_WT"
+mkdir -p "$HOME_DIR/data/$REROOT_ID"
+printf '# brief\n\nDelivery contract: mode=no-mistakes\n' > "$HOME_DIR/data/$REROOT_ID/brief.md"
+REROOT_IDS=$(fm_backend_herdr_create_task "$CONTAINER" "fm-$REROOT_ID" "$PROJ" "") \
+  || fail "could not create drifted-cwd relaunch pane"
+read -r REROOT_TAB_ID REROOT_PANE_ID <<EOF
+$REROOT_IDS
+EOF
+[ -n "$REROOT_TAB_ID" ] && [ -n "$REROOT_PANE_ID" ] || fail "drifted-cwd pane returned incomplete ids"
+{
+  echo "window=$SESSION:$REROOT_PANE_ID"
+  echo "endpoint_task_id=$REROOT_ID"
+  echo "worktree=$REROOT_WT"
+  echo "project=$PROJ"
+  echo "harness=pi"
+  echo "kind=ship"
+  echo "mode=no-mistakes"
+  echo "yolo=off"
+  echo "model=default"
+  echo "effort=default"
+  echo "backend=herdr"
+  echo "herdr_session=$SESSION"
+  echo "herdr_workspace_id=$WORKSPACE_ID"
+  echo "herdr_tab_id=$REROOT_TAB_ID"
+  echo "herdr_pane_id=$REROOT_PANE_ID"
+} > "$HOME_DIR/state/$REROOT_ID.meta"
+REROOT_MARKER="$SCRATCH/reroot-launch-cwd"
+OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
+  "$ROOT/bin/fm-spawn.sh" "$REROOT_ID" --relaunch --harness "pwd > '$REROOT_MARKER'" 2>&1) \
+  || fail "agent-free Herdr cwd recovery should launch: $OUT"
+i=0
+while [ ! -s "$REROOT_MARKER" ] && [ "$i" -lt 50 ]; do
+  sleep 0.1
+  i=$((i + 1))
+done
+[ -s "$REROOT_MARKER" ] || fail "replacement command did not execute after Herdr cwd recovery"
+REROOT_EXPECTED=$(cd "$REROOT_WT" && pwd -P)
+REROOT_LAUNCHED=$(cd "$(cat "$REROOT_MARKER")" && pwd -P)
+[ "$REROOT_LAUNCHED" = "$REROOT_EXPECTED" ] \
+  || fail "replacement command ran in '$REROOT_LAUNCHED', not '$REROOT_EXPECTED'"
+REROOT_LIVE=$("$HERDR_LAB_HELPER" run "$SESSION" pane get "$REROOT_PANE_ID" \
+  | jq -r '.result.pane.foreground_cwd // empty')
+REROOT_LIVE=$(cd "$REROOT_LIVE" && pwd -P)
+[ "$REROOT_LIVE" = "$REROOT_EXPECTED" ] || fail "exact Herdr endpoint did not retain the recovered cwd"
+[ ! -e "$PROJ/HERDR_INJECTED" ] || fail "semicolon-bearing worktree path executed shell text"
+[ ! -e "$PROJ/HERDR_SUBSTITUTED" ] || fail "worktree path executed command substitution"
+pass "real herdr: an exact agent-free endpoint safely re-roots to an injection-resistant recorded worktree before replacement launch"
+
 # --- a registered agent: classification flips, and the verbs follow ---------
 
-herdr pane report-agent "$PANE_ID" --source fm-control-smoke --agent fm-control-smoke-agent \
-  --state idle --session "$SESSION" >/dev/null 2>&1 \
+"$HERDR_LAB_HELPER" run "$SESSION" pane report-agent "$PANE_ID" \
+  --source fm-control-smoke --agent fm-control-smoke-agent --state idle >/dev/null 2>&1 \
   || fail "could not register a live agent on the task pane"
 
 STATE=$(fm_backend_agent_state herdr "$SESSION:$PANE_ID")
@@ -129,7 +184,7 @@ case "$OUT" in
 esac
 pass "real herdr: interrupt delivers the harness's key and proves the agent survived it"
 
-herdr pane get "$PANE_ID" --session "$SESSION" >/dev/null 2>&1 \
+"$HERDR_LAB_HELPER" run "$SESSION" pane get "$PANE_ID" >/dev/null 2>&1 \
   || fail "the control plane must never remove the endpoint it was operating on"
 [ -d "$WT" ] || fail "the control plane must never remove the task's local copy"
 pass "real herdr: no control verb removed the endpoint or the task's local copy"

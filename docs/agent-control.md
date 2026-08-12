@@ -70,6 +70,9 @@ It is not deterministic across the verified adapters: codex and grok resume only
    A secondmate relaunch does not require one and never rewrites its standing charter.
 4. **Stop the old agent** through the `exit` verb, with its postcondition.
 5. **Launch the replacement** through its single owner, `bin/fm-spawn.sh --relaunch`, which adopts the recorded endpoint and worktree instead of creating either, clears the previous harness's per-task wiring, and arms a fresh busy generation.
+   An already-rooted endpoint is unchanged.
+   If an exact Herdr endpoint is positively agent-free but its exposed shell drifted elsewhere, the Herdr adapter proves that the foreground process is one idle shell, clears unsubmitted shell input, runs a shell-quoted `cd` to the already-validated recorded worktree, and verifies both native agent absence and physical cwd before replacement launch.
+   Other backends and every ambiguous Herdr state retain the wrong-worktree refusal.
 
 Switching harness is therefore one ordinary relaunch rather than a separate mechanism.
 
@@ -98,7 +101,9 @@ Switching harness is therefore one ordinary relaunch rather than a separate mech
   zellij, orca, and cmux are refused rather than reported as successful blind.
 - An ambiguous or unreadable endpoint state refuses.
   Only a positively classified state acts.
-- `fm-spawn --relaunch` independently refuses unless the recorded endpoint is positively agent-free and its shell is sitting in the recorded worktree, so a replacement can never join a live agent or start outside the copy holding the work.
+- `fm-spawn --relaunch` independently refuses unless the recorded endpoint is positively agent-free and the replacement can be proven to start in the recorded worktree.
+  A drifted Herdr endpoint takes only the exact idle-shell recovery described above; live or unreadable native agent state, malformed or mismatched endpoint identity, a non-idle shell, an invalid worktree, a changed shell pid, or an unverified final cwd all refuse before replacement launch.
+  Tmux retains the direct wrong-worktree refusal, and zellij, Orca, and cmux remain ineligible because they cannot prove the prior agent stopped.
 
 ## Capability matrix
 
