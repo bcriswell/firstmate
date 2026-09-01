@@ -1,0 +1,5 @@
+ok - preflight reports the structured-attestation version floor
+ok - preflight accepts the floor and newer clients
+ok - preflight rejects clients that cannot publish structured attestation
+ok - preflight fails closed on an unparseable client version
+ok - the no-mistakes gate runs the version preflight before lint

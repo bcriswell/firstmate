@@ -1,0 +1,6 @@
+reconciliation merge: f6ad94693f51af18f850aafddebce0324576d700
+parents: f7e3979c574c350a280adfa08f7281bf2cfb5382 a5f3cbeeb71768bca2ac54c6926d314b6d27b836
+subject: Merge upstream main and preserve Herdr relaunch reroot fix
+PASS: personal-fork Herdr commit f7e3979 remains an ancestor of HEAD
+PASS: reconciled upstream main tip a5f3cbe remains an ancestor of HEAD
+PASS: reconciliation is a two-parent merge commit (normal merge ancestry)
