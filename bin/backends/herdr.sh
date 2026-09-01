@@ -2541,9 +2541,10 @@ fm_backend_herdr_shell_quote_word() {  # <word>
 # must still be the exact target, native agent state must say no-agent, and the
 # foreground process must be one proved lone idle shell before its cwd decides
 # whether re-rooting is needed. A matching cwd returns without mutation.
-# Otherwise Ctrl+U clears any unsubmitted shell input before the quoted cd, then
-# native state, shell pid, and physical cwd are rechecked. Any ambiguous read or
-# identity change refuses.
+# Otherwise native state and the shell pid are rechecked after cwd polling and
+# immediately before Ctrl+U clears any unsubmitted shell input. They are checked
+# again before the quoted cd, and physical cwd is verified afterward. Any
+# ambiguous read or identity change refuses.
 fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
   local target=$1 worktree=$2 session pane expected state shell_pid resampled command
   local seen seen_real path_attempt=0 attempt=0
