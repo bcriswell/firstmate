@@ -43,6 +43,28 @@ out=$(run_with_version 'development build') || rc=$?
 assert_contains "$out" "development build" "unparseable-version refusal omitted the observed output"
 pass "preflight fails closed on an unparseable client version"
 
-assert_grep "lint: 'bin/fm-no-mistakes-preflight.sh && bin/fm-lint.sh'" "$ROOT/.no-mistakes.yaml" \
-  "the gate lint command does not run the attestation preflight before lint"
+configured_lint=$(ruby -ryaml -e '
+  config = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
+  commands = config.fetch("commands")
+  abort "commands must be a mapping" unless commands.is_a?(Hash)
+  lint = commands.fetch("lint")
+  abort "commands.lint must be a string" unless lint.is_a?(String)
+  print lint
+' "$ROOT/.no-mistakes.yaml") || fail "the no-mistakes configuration is not valid typed YAML"
+configured_dir="$TMP_ROOT/configured-lint"
+mkdir -p "$configured_dir/bin"
+cat > "$configured_dir/bin/fm-no-mistakes-preflight.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'preflight\n' >> "$FM_TEST_CONFIGURED_LINT_LOG"
+SH
+cat > "$configured_dir/bin/fm-lint.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'lint\n' >> "$FM_TEST_CONFIGURED_LINT_LOG"
+SH
+chmod +x "$configured_dir/bin/fm-no-mistakes-preflight.sh" "$configured_dir/bin/fm-lint.sh"
+configured_log="$configured_dir/order.log"
+(cd "$configured_dir" && FM_TEST_CONFIGURED_LINT_LOG="$configured_log" /bin/sh -c "$configured_lint") \
+  || fail "the configured lint command is not executable"
+[ "$(cat "$configured_log")" = $'preflight\nlint' ] \
+  || fail "the configured lint command did not run the attestation preflight before lint"
 pass "the no-mistakes gate runs the version preflight before lint"

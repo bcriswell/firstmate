@@ -2536,6 +2536,23 @@ fm_backend_herdr_shell_quote_word() {  # <word>
   printf "'"
 }
 
+FM_BACKEND_HERDR_RELAUNCH_SESSION=
+FM_BACKEND_HERDR_RELAUNCH_PANE=
+FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
+
+fm_backend_herdr_relaunch_revalidate() {  # <target> <session> <pane> <shell-pid>
+  local target=$1 expected_session=$2 expected_pane=$3 expected_shell_pid=$4 state resampled
+  fm_backend_herdr_parse_target "$target" || return 1
+  [ "$FM_BACKEND_HERDR_SESSION" = "$expected_session" ] \
+    && [ "$FM_BACKEND_HERDR_PANE" = "$expected_pane" ] || return 1
+  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$expected_session" "$expected_pane" 2>/dev/null || true)
+  state=$(fm_backend_herdr_pane_agent_state "$expected_session" "$expected_pane")
+  [ "$state" = no-agent ] && [ "$resampled" = "$expected_shell_pid" ] || {
+    echo "error: Herdr relaunch endpoint $target changed identity before replacement launch; refusing before launch mutation" >&2
+    return 1
+  }
+}
+
 # fm_backend_herdr_relaunch_reroot: prepare one exact, positively agent-free
 # Herdr endpoint in its recorded worktree before a replacement launch. The pane
 # must still be the exact target, native agent state must say no-agent, and the
@@ -2548,6 +2565,9 @@ fm_backend_herdr_shell_quote_word() {  # <word>
 fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
   local target=$1 worktree=$2 session pane expected state shell_pid resampled command
   local seen seen_real path_attempt=0 attempt=0
+  FM_BACKEND_HERDR_RELAUNCH_SESSION=
+  FM_BACKEND_HERDR_RELAUNCH_PANE=
+  FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
   case "$worktree" in
     ''|*$'\n'*|*$'\r'*)
       echo "error: recorded worktree is not representable as one Herdr shell command" >&2
@@ -2586,6 +2606,9 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
         echo "error: Herdr relaunch endpoint $target changed identity while confirming its recorded worktree; refusing replacement launch" >&2
         return 1
       }
+      FM_BACKEND_HERDR_RELAUNCH_SESSION=$session
+      FM_BACKEND_HERDR_RELAUNCH_PANE=$pane
+      FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=$shell_pid
       return 0
     fi
     path_attempt=$((path_attempt + 1))
@@ -2630,6 +2653,9 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
         echo "error: Herdr relaunch endpoint $target changed identity after re-rooting; refusing replacement launch" >&2
         return 1
       }
+      FM_BACKEND_HERDR_RELAUNCH_SESSION=$session
+      FM_BACKEND_HERDR_RELAUNCH_PANE=$pane
+      FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=$shell_pid
       return 0
     fi
     attempt=$((attempt + 1))

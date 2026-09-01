@@ -177,6 +177,14 @@ case "${1:-} ${2:-}" in
     esac
     ;;
   "pane process-info")
+    process_info_count=0
+    [ ! -f "$D/process-info-count" ] || process_info_count=$(cat "$D/process-info-count")
+    process_info_count=$((process_info_count + 1))
+    printf '%s' "$process_info_count" > "$D/process-info-count"
+    if [ -e "$D/flip-shell-before-launch-revalidation" ] \
+       && [ "$process_info_count" -ge 3 ]; then
+      printf 'busy' > "$D/shell"
+    fi
     shell_pid=$(cat "$D/shell-pid")
     if [ "$(cat "$D/shell")" = idle ]; then
       jq -cn --argjson pid "$shell_pid" \
@@ -1659,6 +1667,22 @@ test_herdr_spawn_relaunch_refuses_an_already_rooted_busy_process() {
   pass "fm-spawn --relaunch: an already-rooted busy Herdr endpoint is refused"
 }
 
+test_herdr_spawn_relaunch_revalidates_before_launch_mutation() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-post-setup-race hr13)
+  printf 'dead' > "$dir/fake/agent"
+  : > "$dir/fake/flip-shell-before-launch-revalidation"
+  out=$(run_spawn "$dir" hr13 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an endpoint that becomes busy during post-reroot setup should refuse"
+  assert_contains "$out" "changed identity before replacement launch" \
+    "the post-reroot race refusal should name the expired identity proof"
+  assert_no_grep "export GOTMPDIR=" "$dir/fake/run-commands" \
+    "an endpoint that becomes busy during post-reroot setup must receive no launch input"
+  assert_no_grep "encode launch-brief" "$dir/fake/submitted" \
+    "an endpoint that becomes busy during post-reroot setup must receive no replacement launch"
+  pass "fm-spawn --relaunch: revalidates the exact Herdr idle shell before launch mutation"
+}
+
 # The path is deliberately hostile to shell composition. The fake Herdr pane
 # executes the real adapter's cd command through bash, so either marker appears
 # if quoting regresses rather than merely asserting the command's source text.
@@ -1860,6 +1884,7 @@ test_spawn_relaunch_refuses_a_pane_outside_the_worktree
 test_herdr_control_relaunch_recovers_post_exit_cwd_drift
 test_herdr_spawn_relaunch_leaves_an_already_rooted_endpoint_unchanged
 test_herdr_spawn_relaunch_refuses_an_already_rooted_busy_process
+test_herdr_spawn_relaunch_revalidates_before_launch_mutation
 test_herdr_spawn_relaunch_reroots_an_injection_resistant_path
 test_herdr_spawn_relaunch_refuses_live_and_ambiguous_endpoints
 test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutation

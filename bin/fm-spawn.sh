@@ -3064,6 +3064,14 @@ spawn_record_traceparent() {
   return "$status"
 }
 
+if [ "$RELAUNCH" -eq 1 ] && [ "$BACKEND" = herdr ]; then
+  fm_backend_herdr_relaunch_revalidate \
+    "$WT_TARGET" \
+    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" \
+    "$FM_BACKEND_HERDR_RELAUNCH_PANE" \
+    "$FM_BACKEND_HERDR_RELAUNCH_SHELL_PID" || exit 1
+fi
+
 # Export GOTMPDIR into the crewmate's pane shell so the agent and every child
 # process (go build, go test, ...) inherit it. Sent before the launch command so
 # the env is set when the agent starts; the brief sleep lets the export land.
