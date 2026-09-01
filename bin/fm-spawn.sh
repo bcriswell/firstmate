@@ -3065,11 +3065,7 @@ spawn_record_traceparent() {
 }
 
 if [ "$RELAUNCH" -eq 1 ] && [ "$BACKEND" = herdr ]; then
-  fm_backend_herdr_relaunch_revalidate \
-    "$WT_TARGET" \
-    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" \
-    "$FM_BACKEND_HERDR_RELAUNCH_PANE" \
-    "$FM_BACKEND_HERDR_RELAUNCH_SHELL_PID" || exit 1
+  fm_backend_herdr_relaunch_revalidate "$WT_TARGET" || exit 1
 fi
 
 # Export GOTMPDIR into the crewmate's pane shell so the agent and every child

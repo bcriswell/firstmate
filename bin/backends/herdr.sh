@@ -2540,14 +2540,16 @@ FM_BACKEND_HERDR_RELAUNCH_SESSION=
 FM_BACKEND_HERDR_RELAUNCH_PANE=
 FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
 
-fm_backend_herdr_relaunch_revalidate() {  # <target> <session> <pane> <shell-pid>
-  local target=$1 expected_session=$2 expected_pane=$3 expected_shell_pid=$4 state resampled
+fm_backend_herdr_relaunch_revalidate() {  # <target>
+  local target=$1 state resampled
   fm_backend_herdr_parse_target "$target" || return 1
-  [ "$FM_BACKEND_HERDR_SESSION" = "$expected_session" ] \
-    && [ "$FM_BACKEND_HERDR_PANE" = "$expected_pane" ] || return 1
-  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$expected_session" "$expected_pane" 2>/dev/null || true)
-  state=$(fm_backend_herdr_pane_agent_state "$expected_session" "$expected_pane")
-  [ "$state" = no-agent ] && [ "$resampled" = "$expected_shell_pid" ] || {
+  [ "$FM_BACKEND_HERDR_SESSION" = "$FM_BACKEND_HERDR_RELAUNCH_SESSION" ] \
+    && [ "$FM_BACKEND_HERDR_PANE" = "$FM_BACKEND_HERDR_RELAUNCH_PANE" ] || return 1
+  resampled=$(fm_backend_herdr_pane_idle_shell_sample \
+    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE" 2>/dev/null || true)
+  state=$(fm_backend_herdr_pane_agent_state \
+    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE")
+  [ "$state" = no-agent ] && [ "$resampled" = "$FM_BACKEND_HERDR_RELAUNCH_SHELL_PID" ] || {
     echo "error: Herdr relaunch endpoint $target changed identity before replacement launch; refusing before launch mutation" >&2
     return 1
   }

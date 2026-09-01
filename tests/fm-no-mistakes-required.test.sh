@@ -69,7 +69,8 @@ test_missing_head_fails() {
 
 test_workflow_requires_current_head_attestation() {
   command -v ruby >/dev/null 2>&1 || fail "ruby is required to parse the no-mistakes workflow"
-  ruby -ryaml -e '
+  if ! ruby -ryaml - "$ROOT/.github/workflows/no-mistakes-required.yml" \
+    "kunchenguid/no-mistakes/.github/actions/require-no-mistakes@$ACTION_REF" <<'RUBY'
     config = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
     steps = config.fetch("jobs").fetch("check").fetch("steps")
     action = steps.find { |step| step["uses"] == ARGV.fetch(1) }
@@ -77,9 +78,10 @@ test_workflow_requires_current_head_attestation() {
     inputs = action.fetch("with")
     abort "pr-head-sha is not bound to the pull request head" unless inputs["pr-head-sha"] == "${{ github.event.pull_request.head.sha }}"
     abort "attestation exemption remains configured" if inputs.key?("exempt-head-branches")
-  ' "$ROOT/.github/workflows/no-mistakes-required.yml" \
-    "kunchenguid/no-mistakes/.github/actions/require-no-mistakes@$ACTION_REF" \
-    || fail "the workflow does not enforce normal head-bound attestation"
+RUBY
+  then
+    fail "the workflow does not enforce normal head-bound attestation"
+  fi
   pass "workflow requires head-bound attestation without branch exemptions"
 }
 
