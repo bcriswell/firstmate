@@ -23,8 +23,9 @@ fetch_shared_verifier() {
 }
 
 run_verifier() {
-  local body=$1 head=$2
-  PR_BODY="$body" PR_HEAD_SHA="$head" PR_AUTHOR=regression PR_NUMBER=3006 \
+  local body=$1 head=$2 head_ref=${3:-} exempt_head_branches=${4:-}
+  PR_BODY="$body" PR_HEAD_SHA="$head" PR_HEAD_REF="$head_ref" \
+    PR_AUTHOR=regression PR_NUMBER=3006 NM_EXEMPT_HEAD_BRANCHES="$exempt_head_branches" \
     python3 "$VERIFY" 2>&1
 }
 
@@ -66,7 +67,25 @@ test_missing_head_fails() {
   pass "shared action rejects an attestation with no head_sha"
 }
 
+test_exact_legacy_reconciliation_branch_can_be_exempted() {
+  local branch output rc
+  branch=sync/upstream-main-20260901-herdr-reroot
+  rc=0
+  output=$(run_verifier "$SIGNATURE" "$NEW_SHA" "$branch" "$branch") || rc=$?
+  expect_code 0 "$rc" "shared action rejected the exact legacy reconciliation branch exemption"
+  assert_contains "$output" "head branch $branch matches exempt pattern $branch" \
+    "shared action did not report the exact legacy reconciliation exemption"
+
+  rc=0
+  output=$(run_verifier "$SIGNATURE" "$NEW_SHA" "$branch-next" "$branch") || rc=$?
+  [ "$rc" -ne 0 ] || fail "shared action let a near-match reuse the legacy reconciliation exemption"
+  assert_contains "$output" "missing structured pipeline step attestation" \
+    "near-match failure did not retain structured-attestation enforcement"
+  pass "shared action limits the legacy reconciliation exemption to the exact branch"
+}
+
 fetch_shared_verifier
 test_matching_head_and_completed_steps_pass
 test_mismatched_head_fails_with_both_shas
 test_missing_head_fails
+test_exact_legacy_reconciliation_branch_can_be_exempted

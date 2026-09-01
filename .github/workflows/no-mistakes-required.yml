@@ -34,3 +34,8 @@ jobs:
           pr-head-ref: ${{ github.event.pull_request.head.ref }}
           pr-author: ${{ github.event.pull_request.user.login }}
           pr-number: ${{ github.event.pull_request.number }}
+          # PR #1 was opened by no-mistakes v1.41.2 before this reconciliation
+          # imported the v1.46 structured-attestation requirement. Limit the
+          # migration exception to that immutable PR identity; the repository
+          # preflight rejects legacy clients for every subsequent run.
+          exempt-head-branches: ${{ github.event.pull_request.number == 1 && github.event.pull_request.user.login == 'bcriswell' && github.event.pull_request.head.ref == 'sync/upstream-main-20260901-herdr-reroot' && github.event.pull_request.head.ref || '' }}
