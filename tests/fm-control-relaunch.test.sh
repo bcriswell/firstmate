@@ -1629,9 +1629,27 @@ test_herdr_spawn_relaunch_leaves_an_already_rooted_endpoint_unchanged() {
   printf 'dead' > "$dir/fake/agent"
   out=$(run_spawn "$dir" hr2 --relaunch --harness claude); rc=$?
   expect_code 0 "$rc" "an already-rooted Herdr relaunch should succeed"$'\n'"$out"
+  assert_grep $'pane\037process-info' "$dir/fake/herdr.log" \
+    "an already-rooted Herdr endpoint should prove its idle shell"
   assert_no_grep "cd -- " "$dir/fake/run-commands" \
     "an already-rooted Herdr endpoint should not be re-rooted"
   pass "fm-spawn --relaunch: the proven already-rooted Herdr path is unchanged"
+}
+
+test_herdr_spawn_relaunch_refuses_an_already_rooted_busy_process() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-rooted-busy hr11)
+  printf 'dead' > "$dir/fake/agent"
+  printf 'busy' > "$dir/fake/shell"
+  out=$(run_spawn "$dir" hr11 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an already-rooted busy Herdr endpoint should refuse"
+  assert_contains "$out" "not one provably idle shell" \
+    "the already-rooted busy refusal should name its missing proof"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" \
+    "an already-rooted busy endpoint must receive no cwd command"
+  assert_no_grep "encode launch-brief" "$dir/fake/submitted" \
+    "an already-rooted busy endpoint must receive no replacement launch"
+  pass "fm-spawn --relaunch: an already-rooted busy Herdr endpoint is refused"
 }
 
 # The path is deliberately hostile to shell composition. The fake Herdr pane
@@ -1821,6 +1839,7 @@ test_spawn_relaunch_refuses_an_unrecorded_task
 test_spawn_relaunch_refuses_a_pane_outside_the_worktree
 test_herdr_control_relaunch_recovers_post_exit_cwd_drift
 test_herdr_spawn_relaunch_leaves_an_already_rooted_endpoint_unchanged
+test_herdr_spawn_relaunch_refuses_an_already_rooted_busy_process
 test_herdr_spawn_relaunch_reroots_an_injection_resistant_path
 test_herdr_spawn_relaunch_refuses_live_and_ambiguous_endpoints
 test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutation

@@ -29,11 +29,10 @@
 #   model, and effort may change, which is what makes a harness switch one
 #   ordinary relaunch. It refuses unless the recorded endpoint is positively
 #   agent-free on a backend with a recovery-grade agent-state classifier (tmux
-#   or herdr). A Herdr endpoint that is positively agent-free but has drifted
-#   is re-rooted only when its foreground process is one proved idle shell; an
-#   already-rooted endpoint is unchanged, and every other wrong-cwd or ambiguous
-#   endpoint refuses. The previous harness's per-task wiring is cleared before
-#   the new incarnation is armed.
+#   or herdr). Every Herdr relaunch requires one proved idle shell; a drifted
+#   endpoint is then re-rooted, an already-rooted endpoint is unchanged, and
+#   every other wrong-cwd or ambiguous endpoint refuses. The previous harness's
+#   per-task wiring is cleared before the new incarnation is armed.
 #   --harness <name> is the explicit per-spawn harness/profile adapter. The old
 #   positional harness arg still works for back-compat.
 #   --model <name> and --effort <low|medium|high|xhigh|max> are concrete profile
@@ -2418,28 +2417,29 @@ kimi_spawn_fail() {  # <detail>
 
 if [ "$RELAUNCH" -eq 1 ]; then
   # No worktree is acquired: the recorded one is reused as-is. Validate that
-  # recorded root before any endpoint mutation. An already-rooted endpoint is
-  # accepted unchanged. Herdr alone can safely recover a drifted endpoint: its
-  # adapter proves the exact pane is agent-free and holds one idle shell, clears
-  # unsubmitted shell input, runs an injection-safe cd, and verifies both cwd
-  # and native agent state before this launch continues. Every ambiguity and
-  # every other backend's wrong cwd retains the existing refusal.
+  # recorded root before any endpoint mutation. Herdr proves the exact pane is
+  # agent-free and holds one idle shell before deciding whether it needs to
+  # recover a drifted endpoint; an already-rooted idle endpoint is accepted
+  # unchanged. Recovery clears unsubmitted shell input, runs an injection-safe
+  # cd, and verifies both cwd and native agent state before this launch
+  # continues. Every ambiguity and every other backend's wrong cwd retains the
+  # existing refusal.
   validate_recorded_worktree_root "relaunch" "$T"
   [ "$KIND" = secondmate ] || validate_spawn_worktree "relaunch" "$T"
   relaunch_wt_real=$(real_path_or_raw "$WT")
-  relaunch_seen=
-  for _ in $(seq 1 10); do
-    relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
-    [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ] || break
-    sleep 0.5
-  done
-  if { [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ]; } \
-     && [ "$BACKEND" = herdr ]; then
+  if [ "$BACKEND" = herdr ]; then
     fm_backend_herdr_relaunch_reroot "$WT_TARGET" "$WT" || {
-      echo "error: task $ID's agent-free Herdr endpoint could not be safely re-rooted in recorded worktree '$WT'; refusing replacement launch" >&2
+      echo "error: task $ID's agent-free Herdr endpoint could not be safely prepared in recorded worktree '$WT'; refusing replacement launch" >&2
       exit 1
     }
     relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
+  else
+    relaunch_seen=
+    for _ in $(seq 1 10); do
+      relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
+      [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ] || break
+      sleep 0.5
+    done
   fi
   if [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ]; then
     echo "error: task $ID's endpoint is in '${relaunch_seen:-unknown}', not its recorded worktree '$WT'; refusing to relaunch an agent outside the copy holding its work" >&2
