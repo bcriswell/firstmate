@@ -23,9 +23,9 @@ fetch_shared_verifier() {
 }
 
 run_verifier() {
-  local body=$1 head=$2 head_ref=${3:-} exempt_head_branches=${4:-}
-  PR_BODY="$body" PR_HEAD_SHA="$head" PR_HEAD_REF="$head_ref" \
-    PR_AUTHOR=regression PR_NUMBER=3006 NM_EXEMPT_HEAD_BRANCHES="$exempt_head_branches" \
+  local body=$1 head=$2
+  PR_BODY="$body" PR_HEAD_SHA="$head" \
+    PR_AUTHOR=regression PR_NUMBER=3006 \
     python3 "$VERIFY" 2>&1
 }
 
@@ -67,25 +67,24 @@ test_missing_head_fails() {
   pass "shared action rejects an attestation with no head_sha"
 }
 
-test_exact_legacy_reconciliation_branch_can_be_exempted() {
-  local branch output rc
-  branch=sync/upstream-main-20260901-herdr-reroot
-  rc=0
-  output=$(run_verifier "$SIGNATURE" "$NEW_SHA" "$branch" "$branch") || rc=$?
-  expect_code 0 "$rc" "shared action rejected the exact legacy reconciliation branch exemption"
-  assert_contains "$output" "head branch $branch matches exempt pattern $branch" \
-    "shared action did not report the exact legacy reconciliation exemption"
-
-  rc=0
-  output=$(run_verifier "$SIGNATURE" "$NEW_SHA" "$branch-next" "$branch") || rc=$?
-  [ "$rc" -ne 0 ] || fail "shared action let a near-match reuse the legacy reconciliation exemption"
-  assert_contains "$output" "missing structured pipeline step attestation" \
-    "near-match failure did not retain structured-attestation enforcement"
-  pass "shared action limits the legacy reconciliation exemption to the exact branch"
+test_workflow_requires_current_head_attestation() {
+  command -v ruby >/dev/null 2>&1 || fail "ruby is required to parse the no-mistakes workflow"
+  ruby -ryaml -e '
+    config = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
+    steps = config.fetch("jobs").fetch("check").fetch("steps")
+    action = steps.find { |step| step["uses"] == ARGV.fetch(1) }
+    abort "pinned verifier action is missing" unless action
+    inputs = action.fetch("with")
+    abort "pr-head-sha is not bound to the pull request head" unless inputs["pr-head-sha"] == "${{ github.event.pull_request.head.sha }}"
+    abort "attestation exemption remains configured" if inputs.key?("exempt-head-branches")
+  ' "$ROOT/.github/workflows/no-mistakes-required.yml" \
+    "kunchenguid/no-mistakes/.github/actions/require-no-mistakes@$ACTION_REF" \
+    || fail "the workflow does not enforce normal head-bound attestation"
+  pass "workflow requires head-bound attestation without branch exemptions"
 }
 
 fetch_shared_verifier
 test_matching_head_and_completed_steps_pass
 test_mismatched_head_fails_with_both_shas
 test_missing_head_fails
-test_exact_legacy_reconciliation_branch_can_be_exempted
+test_workflow_requires_current_head_attestation
