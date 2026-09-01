@@ -2536,16 +2536,40 @@ fm_backend_herdr_shell_quote_word() {  # <word>
   printf "'"
 }
 
-# fm_backend_herdr_relaunch_reroot: move one exact, positively agent-free
-# Herdr endpoint back to its recorded worktree before a replacement launch.
-# This is deliberately narrower than an ordinary send: the pane must still be
-# the exact target, native agent state must say no-agent, and the foreground
-# process must be one proved lone idle shell. Ctrl+U clears any unsubmitted
-# shell input before the quoted cd, then native state, shell pid, and physical
-# cwd are rechecked. Any ambiguous read or identity change refuses.
+FM_BACKEND_HERDR_RELAUNCH_SESSION=
+FM_BACKEND_HERDR_RELAUNCH_PANE=
+FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
+
+fm_backend_herdr_relaunch_revalidate() {  # <target>
+  local target=$1 state resampled
+  fm_backend_herdr_parse_target "$target" || return 1
+  [ "$FM_BACKEND_HERDR_SESSION" = "$FM_BACKEND_HERDR_RELAUNCH_SESSION" ] \
+    && [ "$FM_BACKEND_HERDR_PANE" = "$FM_BACKEND_HERDR_RELAUNCH_PANE" ] || return 1
+  resampled=$(fm_backend_herdr_pane_idle_shell_sample \
+    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE" 2>/dev/null || true)
+  state=$(fm_backend_herdr_pane_agent_state \
+    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE")
+  [ "$state" = no-agent ] && [ "$resampled" = "$FM_BACKEND_HERDR_RELAUNCH_SHELL_PID" ] || {
+    echo "error: Herdr relaunch endpoint $target changed identity before replacement launch; refusing before launch mutation" >&2
+    return 1
+  }
+}
+
+# fm_backend_herdr_relaunch_reroot: prepare one exact, positively agent-free
+# Herdr endpoint in its recorded worktree before a replacement launch. The pane
+# must still be the exact target, native agent state must say no-agent, and the
+# foreground process must be one proved lone idle shell before its cwd decides
+# whether re-rooting is needed. A matching cwd returns without mutation.
+# Otherwise native state and the shell pid are rechecked after cwd polling and
+# immediately before Ctrl+U clears any unsubmitted shell input. They are checked
+# again before the quoted cd, and physical cwd is verified afterward. Any
+# ambiguous read or identity change refuses.
 fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
   local target=$1 worktree=$2 session pane expected state shell_pid resampled command
-  local seen seen_real attempt=0
+  local seen seen_real path_attempt=0 attempt=0
+  FM_BACKEND_HERDR_RELAUNCH_SESSION=
+  FM_BACKEND_HERDR_RELAUNCH_PANE=
+  FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
   case "$worktree" in
     ''|*$'\n'*|*$'\r'*)
       echo "error: recorded worktree is not representable as one Herdr shell command" >&2
@@ -2564,11 +2588,38 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
   pane=$FM_BACKEND_HERDR_PANE
   state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
   [ "$state" = no-agent ] || {
-    echo "error: Herdr relaunch endpoint $target is '$state', not positively agent-free; refusing to change its shell directory" >&2
+    echo "error: Herdr relaunch endpoint $target is '$state', not positively agent-free; refusing replacement launch" >&2
     return 1
   }
   shell_pid=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane") || {
-    echo "error: Herdr relaunch endpoint $target is not one provably idle shell; refusing to change its directory" >&2
+    echo "error: Herdr relaunch endpoint $target is not one provably idle shell; refusing replacement launch" >&2
+    return 1
+  }
+  while [ "$path_attempt" -lt 10 ]; do
+    seen=$(fm_backend_herdr_current_path "$target" || true)
+    seen_real=
+    if [ -n "$seen" ]; then
+      seen_real=$(cd -- "$seen" 2>/dev/null && pwd -P) || seen_real=
+    fi
+    if [ "$seen_real" = "$expected" ]; then
+      resampled=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane" 2>/dev/null || true)
+      state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+      [ "$resampled" = "$shell_pid" ] && [ "$state" = no-agent ] || {
+        echo "error: Herdr relaunch endpoint $target changed identity while confirming its recorded worktree; refusing replacement launch" >&2
+        return 1
+      }
+      FM_BACKEND_HERDR_RELAUNCH_SESSION=$session
+      FM_BACKEND_HERDR_RELAUNCH_PANE=$pane
+      FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=$shell_pid
+      return 0
+    fi
+    path_attempt=$((path_attempt + 1))
+    [ "$path_attempt" -ge 10 ] || sleep 0.5
+  done
+  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$session" "$pane" 2>/dev/null || true)
+  state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+  [ "$resampled" = "$shell_pid" ] && [ "$state" = no-agent ] || {
+    echo "error: Herdr relaunch endpoint $target changed identity while waiting to re-root; refusing before shell mutation" >&2
     return 1
   }
   fm_backend_herdr_cli "$session" pane send-keys "$pane" ctrl+u >/dev/null 2>&1 || {
@@ -2604,6 +2655,9 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
         echo "error: Herdr relaunch endpoint $target changed identity after re-rooting; refusing replacement launch" >&2
         return 1
       }
+      FM_BACKEND_HERDR_RELAUNCH_SESSION=$session
+      FM_BACKEND_HERDR_RELAUNCH_PANE=$pane
+      FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=$shell_pid
       return 0
     fi
     attempt=$((attempt + 1))

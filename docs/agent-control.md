@@ -19,7 +19,7 @@ The failure repeated across harnesses and homes, and the workaround (remember to
   There is no arbitrary-text and no generic raw-key entry point.
   A caller either names an allowlisted verb or is refused.
 - **Per-harness mechanics**: the key that cancels a running turn, how many times it must be delivered, whether the composer needs clearing afterwards, the command that exits the agent, and which task kinds the adapter is verified to run.
-  These were previously carried only in the [`harness-adapters`](../.agents/skills/harness-adapters/SKILL.md) skill's per-adapter tables, which now point here.
+  These were previously carried only in the [`harness-adapters`](../.agents/skills/harness-adapters/SKILL.md) skill's tool references, which now point here.
   `bin/fm-send.sh`'s `--key` path reads the composer-clear table from this owner too, rather than keeping a second copy of it.
 - **Per-backend capability**: which named keys a runtime backend can deliver, and whether it has a recovery-grade agent-state classifier able to prove an agent stopped.
 
@@ -70,8 +70,9 @@ It is not deterministic across the verified adapters: codex and grok resume only
    A secondmate relaunch does not require one and never rewrites its standing charter.
 4. **Stop the old agent** through the `exit` verb, with its postcondition.
 5. **Launch the replacement** through its single owner, `bin/fm-spawn.sh --relaunch`, which adopts the recorded endpoint and worktree instead of creating either, clears the previous harness's per-task wiring, and arms a fresh busy generation.
-   An already-rooted endpoint is unchanged.
-   If an exact Herdr endpoint is positively agent-free but its exposed shell drifted elsewhere, the Herdr adapter proves that the foreground process is one idle shell, clears unsubmitted shell input, runs a shell-quoted `cd` to the already-validated recorded worktree, and verifies both native agent absence and physical cwd before replacement launch.
+   Every Herdr relaunch first proves that the exact endpoint is positively agent-free and its foreground process is one idle shell, including when its exposed shell is already in the recorded worktree; an already-rooted endpoint is then left unmutated.
+   For a drifted shell, the adapter revalidates native agent absence and the exact idle-shell pid immediately before clearing unsubmitted shell input, checks them again before running a shell-quoted `cd` to the already-validated recorded worktree, and verifies both native agent absence and physical cwd afterward.
+   After all remaining launch setup, the adapter revalidates the exact endpoint, native agent absence, and the same idle-shell pid immediately before the first environment export or other replacement-launch input.
    Other backends and every ambiguous Herdr state retain the wrong-worktree refusal.
 
 Switching harness is therefore one ordinary relaunch rather than a separate mechanism.
@@ -102,7 +103,7 @@ Switching harness is therefore one ordinary relaunch rather than a separate mech
 - An ambiguous or unreadable endpoint state refuses.
   Only a positively classified state acts.
 - `fm-spawn --relaunch` independently refuses unless the recorded endpoint is positively agent-free and the replacement can be proven to start in the recorded worktree.
-  A drifted Herdr endpoint takes only the exact idle-shell recovery described above; live or unreadable native agent state, malformed or mismatched endpoint identity, a non-idle shell, an invalid worktree, a changed shell pid, or an unverified final cwd all refuse before replacement launch.
+  Herdr follows the exact idle-shell preparation and last-moment revalidation in transactional relaunch step 5; any failed proof refuses before the next mutation.
   Tmux retains the direct wrong-worktree refusal, and zellij, Orca, and cmux remain ineligible because they cannot prove the prior agent stopped.
 
 ## Capability matrix
