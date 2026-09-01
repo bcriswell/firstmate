@@ -156,6 +156,12 @@ case "${1:-} ${2:-}" in
     printf '%s\n' '{"client":{"protocol":19,"version":"0.8.0"},"server":{"running":true,"protocol":19,"version":"0.8.0"}}'
     ;;
   "pane get")
+    if [ -e "$D/flip-shell-during-cwd-poll" ] \
+       && [ -e "$D/idle-proof-seen" ] \
+       && [ ! -e "$D/cwd-poll-flipped" ]; then
+      printf 'busy' > "$D/shell"
+      : > "$D/cwd-poll-flipped"
+    fi
     if [ "$(cat "$D/agent")" = missing ]; then
       printf '%s\n' '{"error":{"code":"pane_not_found"}}'
     else
@@ -175,6 +181,7 @@ case "${1:-} ${2:-}" in
     if [ "$(cat "$D/shell")" = idle ]; then
       jq -cn --argjson pid "$shell_pid" \
         '{result:{type:"pane_process_info",process_info:{pane_id:"w1:p1",shell_pid:$pid,foreground_process_group_id:$pid,foreground_processes:[{pid:$pid,name:"zsh",argv0:"-zsh"}]}}}'
+      : > "$D/idle-proof-seen"
     else
       jq -cn --argjson pid "$shell_pid" \
         '{result:{type:"pane_process_info",process_info:{pane_id:"w1:p1",shell_pid:$pid,foreground_process_group_id:5252,foreground_processes:[{pid:5252,name:"sleep",argv0:"sleep"}]}}}'
@@ -1722,6 +1729,19 @@ test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutatio
 
 test_herdr_spawn_relaunch_refuses_identity_change_and_unverified_reroot() {
   local dir out rc
+  dir=$(new_herdr_case herdr-poll-race-refuse hr12)
+  printf 'dead' > "$dir/fake/agent"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  : > "$dir/fake/flip-shell-during-cwd-poll"
+  out=$(run_spawn "$dir" hr12 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an endpoint that becomes busy during cwd polling should refuse"
+  assert_contains "$out" "changed identity while waiting to re-root" \
+    "the cwd-poll race refusal should name the stale identity proof"
+  assert_no_grep $'pane\037send-keys\037w1:p1\037ctrl+u' "$dir/fake/herdr.log" \
+    "an endpoint that becomes busy during cwd polling must receive no input"
+  assert_no_grep "cd -- " "$dir/fake/run-commands" \
+    "an endpoint that becomes busy during cwd polling must receive no cwd command"
+
   dir=$(new_herdr_case herdr-race-refuse hr8)
   printf 'dead' > "$dir/fake/agent"
   printf '%s' "$dir/proj" > "$dir/fake/cwd"

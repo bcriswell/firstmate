@@ -2590,6 +2590,12 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
     path_attempt=$((path_attempt + 1))
     [ "$path_attempt" -ge 10 ] || sleep 0.5
   done
+  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$session" "$pane" 2>/dev/null || true)
+  state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
+  [ "$resampled" = "$shell_pid" ] && [ "$state" = no-agent ] || {
+    echo "error: Herdr relaunch endpoint $target changed identity while waiting to re-root; refusing before shell mutation" >&2
+    return 1
+  }
   fm_backend_herdr_cli "$session" pane send-keys "$pane" ctrl+u >/dev/null 2>&1 || {
     echo "error: could not clear the proved idle shell at Herdr relaunch endpoint $target" >&2
     return 1
