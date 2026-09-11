@@ -1,0 +1,2 @@
+ok - real herdr: exit on a pane with no registered agent is idempotent success
+ok - real herdr 0.8.0: a gone session reads recoverable while a live pane and a malformed target do not

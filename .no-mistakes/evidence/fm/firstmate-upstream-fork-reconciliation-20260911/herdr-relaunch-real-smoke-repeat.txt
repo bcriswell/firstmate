@@ -1,0 +1,4 @@
+ok - real herdr: exit on a pane with no registered agent is idempotent success
+ok - real herdr 0.8.0: a gone session reads recoverable while a live pane and a malformed target do not
+ok - real herdr: a drifted agent-free shell returns to its worktree and reuses the same endpoint
+ok - real herdr: interrupt refuses when herdr's own agent registry reports no agent

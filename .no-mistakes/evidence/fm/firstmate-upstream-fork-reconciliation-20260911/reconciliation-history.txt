@@ -1,0 +1,23 @@
+Target merge: 233ff001e4869900774d1588977eeeab2fb9c296
+Parents: 7bbcc4fd5582e6345c48b6cbb0beb369ee778744 9074f9d20d3dd6b632051623f71797084a7aab36
+Subject: Merge upstream main while preserving fork safeguards
+
+Fork-only commits retained before merge: 13
+f7e3979c574c350a280adfa08f7281bf2cfb5382 fix: safely reroot drifted Herdr relaunches
+f6ad94693f51af18f850aafddebce0324576d700 Merge upstream main and preserve Herdr relaunch reroot fix
+7e083e3a514bdf262e0c4d2e0e7c676fc49ee2cf no-mistakes(review): Captain: require Herdr idle proof for rooted relaunches
+f4d73dfa40484d2ea6cf9069554f632617656bf8 no-mistakes(review): Captain: revalidate Herdr identity before reroot mutation
+13c3d4bf82c752ec2e3da79c5720e32f32ac892b no-mistakes(document): Clarify Herdr reroot identity revalidation
+6d87081f6f8b43acea1edb1de02b0e674779d736 no-mistakes: apply CI fixes
+83f4d83bb4bbcac91d538098f636e08bff8fd93a no-mistakes: apply CI fixes
+aa770ef9177beda18b440263039daeac672d45ce no-mistakes: apply CI fixes
+de4ffa0839c86b6924d8c3f3f9960e7dceedf9b6 no-mistakes(review): Captain: revalidate Herdr launches and parse lint configuration
+86329b037433d23a7cb82fc69c22c476e848000e no-mistakes(review): Captain: remove legacy attestation branch exemption
+23bcce8b8dd4f20c1b8134834c2bfdba7f175695 no-mistakes(document): Document Herdr relaunch revalidation guarantees
+70edd11c5ac4432380b7bea9f338b8dbb18405bb no-mistakes(lint): Captain, resolve ShellCheck findings
+7bbcc4fd5582e6345c48b6cbb0beb369ee778744 Merge pull request #1 from bcriswell/sync/upstream-main-20260901-herdr-reroot
+
+Ancestry checks:
+PASS fork base is ancestor of target
+PASS upstream head is ancestor of target
+PASS no co-author trailer in retained fork history or merge
