@@ -185,6 +185,10 @@ for _ in $(seq 1 20); do
   sleep 0.1
 done
 [ -e "$SCRATCH/codex-launched" ] || fail "the replacement harness was not launched"
+for _ in $(seq 1 20); do
+  [ "$(fm_backend_herdr_current_path "$SESSION:$PANE_ID" 2>/dev/null || true)" != "$WT_REAL" ] || break
+  sleep 0.1
+done
 [ "$(fm_backend_herdr_current_path "$SESSION:$PANE_ID" 2>/dev/null || true)" = "$WT_REAL" ] \
   || fail "the relaunched Herdr shell did not end up in its recorded worktree"
 [ "$(sed -n 's/^window=//p' "$HOME_DIR/state/hsmoke.meta" | tail -1)" = "$SESSION:$PANE_ID" ] \
@@ -211,7 +215,14 @@ REROOT_ID=hreroot
 REROOT_WT="$SCRATCH/wt space; touch HERDR_INJECTED; quote ' \$(touch HERDR_SUBSTITUTED)"
 git -C "$PROJ" worktree add --quiet -b hreroot "$REROOT_WT"
 mkdir -p "$HOME_DIR/data/$REROOT_ID"
-printf '# brief\n\nDelivery contract: mode=no-mistakes\n' > "$HOME_DIR/data/$REROOT_ID/brief.md"
+cat > "$HOME_DIR/data/$REROOT_ID/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Exercise injection-resistant Herdr cwd recovery.
+
+## Firstmate spec
+Relaunch in the exact recorded worktree without executing path text.
+EOF
 REROOT_IDS=$(fm_backend_herdr_create_task "$CONTAINER" "fm-$REROOT_ID" "$PROJ" "") \
   || fail "could not create drifted-cwd relaunch pane"
 read -r REROOT_TAB_ID REROOT_PANE_ID <<EOF
