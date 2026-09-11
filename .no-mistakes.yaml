@@ -23,18 +23,15 @@ document:
     branch diff again after every documentation or lint fix.
 
 # Refuse an attestation-incapable no-mistakes client before lint can pass and
-# publish a legacy PR body that CI must reject. Then run the same lint owner CI
-# runs instead of leaving lint to no-mistakes' default handling.
-# `bin/fm-lint.sh` owns the complete lint definition, including GitHub workflow
-# lint via pinned actionlint in `bin/fm-lint-workflows.sh`, and
-# `.github/workflows/ci.yml` invokes it directly, with parity asserted by
-# `tests/fm-lint.test.sh` and `tests/fm-lint-workflows.test.sh`.
+# publish a legacy PR body that CI must reject.
+# Pin lint to the same owner CI invokes instead of leaving it to no-mistakes'
+# default handling, which does not invoke the repository's canonical lint gate.
+# `bin/fm-lint.sh` owns the context-sensitive ShellCheck modes and GitHub
+# workflow lint via pinned actionlint in `bin/fm-lint-workflows.sh`.
+# Invocation wiring is asserted by `tests/fm-lint.test.sh` and
+# `tests/fm-lint-workflows.test.sh`.
 #
-# Do not set commands.test to a complete tests/*.test.sh walk. Local no-mistakes
-# Test is intent-targeted validation of whether the change meets its brief;
-# .github/workflows/ci.yml owns broad regression (behavior suite, platform,
-# security, Herdr, tmux, and lifecycle coverage). A full-suite override here
-# would duplicate CI and defeat the targeted Test contract.
+# Keep commands.test absent; the firstmate-coding-guidelines skill owns this policy.
 commands:
   lint: 'bin/fm-no-mistakes-preflight.sh && bin/fm-lint.sh'
 
