@@ -3083,7 +3083,7 @@ fm_backend_herdr_relaunch_revalidate() {  # <target>
     && [ "$FM_BACKEND_HERDR_PANE" = "$FM_BACKEND_HERDR_RELAUNCH_PANE" ] || return 1
   state=$(fm_backend_herdr_pane_agent_state \
     "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE")
-  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample \
+  resampled=$(fm_backend_herdr_pane_relaunch_shell_pid \
     "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE" 2>/dev/null || true)
   if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
     || [ "$resampled" != "$FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID" ]; then

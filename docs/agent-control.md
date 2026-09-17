@@ -74,7 +74,7 @@ It is not deterministic across the verified adapters: codex, grok, and gemini re
 5. **Launch the replacement** through its single owner, `bin/fm-spawn.sh --relaunch`, which adopts the recorded endpoint and worktree instead of creating either, clears the previous harness's per-task wiring, and arms a fresh busy generation.
    Every Herdr relaunch first proves that the exact endpoint is positively agent-free, its settled foreground process group contains one recognized idle shell attributable to Herdr's outer pane shell, and no supported harness process exists anywhere below that outer shell; this accepts the nested shell left by `treehouse get`, while an already-rooted endpoint is left unmutated.
    For a drifted shell, the adapter revalidates the positively agent-free process state and exact foreground-shell pid immediately before clearing unsubmitted shell input, checks them again before running a shell-quoted `cd` to the already-validated recorded worktree, and verifies both agent-free state and physical cwd afterward.
-   After all remaining launch setup, the adapter revalidates the exact endpoint, agent-free state, and same foreground-shell pid immediately before the first environment export or other replacement-launch input.
+   After all remaining launch setup, the adapter revalidates the exact endpoint, agent-free state, and same foreground-shell pid immediately before every replacement-launch input: each environment export, the launch literal, and Enter.
    A live or unregistered harness, non-shell foreground process, unreadable ancestry, multiple or unsettled foreground processes, identity change, and every ambiguous Herdr state refuse before the next input.
    Other backends retain the wrong-worktree refusal.
 
@@ -108,7 +108,7 @@ Switching harness is therefore one ordinary relaunch rather than a separate mech
   Only a positively classified state acts.
 - `exit`'s composer-empty check, above, is itself a fail-closed boundary that `relaunch` inherits by stopping the old agent through `exit`.
 - `fm-spawn --relaunch` independently refuses unless the recorded endpoint is positively agent-free and the replacement can be proven to start in the recorded worktree.
-  Herdr follows the nested-aware foreground-shell preparation and last-moment revalidation in transactional relaunch step 5; any failed proof refuses before the next input.
+  Herdr follows the nested-aware foreground-shell preparation and per-input revalidation in transactional relaunch step 5; any failed proof refuses before the next input.
   Tmux retains the direct wrong-worktree refusal, and zellij, Orca, and cmux remain ineligible because they cannot prove the prior agent stopped.
 
 ## Capability matrix

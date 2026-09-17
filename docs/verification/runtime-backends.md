@@ -1299,6 +1299,8 @@ Observed bounded output on 2026-09-16:
 ok - fm-control relaunch: a stopped Herdr worker recovers from nested-shell cwd drift in the same endpoint and worktree
 ok - fm-spawn --relaunch: an already-rooted nested foreground shell is recoverable without cwd mutation
 ok - fm-spawn --relaunch: a stale Herdr registration over a nested idle shell remains recoverable
+ok - fm-spawn --relaunch: final process sampling catches an unregistered process started after registration lookup
+ok - fm-spawn --relaunch: every later input is withheld after an inter-send process race
 ok - fm-spawn --relaunch: Herdr cwd recovery shell-quotes spaces, metacharacters, command substitution, and a single quote
 ok - fm-spawn --relaunch: live, busy, unregistered-harness, unattributable, and unsettled Herdr endpoints retain the refusal
 ok - fm-spawn --relaunch: endpoint and worktree identity ambiguity refuses before Herdr mutation
@@ -1320,7 +1322,7 @@ The cwd-recovery case executes the real shell command in a named non-default lab
 The portable public-interface cases drive the complete stop-then-relaunch transaction and refusal matrix, and the real Pi guard composes exit, stale registration, nested-shell proof, and replacement launch in one unchanged endpoint.
 Runtime-provider applicability was reviewed across all five spawn backends: tmux retains its direct wrong-worktree refusal; zellij, Orca, and cmux remain ineligible for relaunch because they lack recovery-grade agent-state classification; only Herdr owns the nested-aware reroot primitive.
 Worker-tool applicability was reviewed across Claude, Codex, OpenCode, Pi, pi-signed, Grok, Kimi, Cursor, OMP, Muse, Gemini, Rovo, and Agy.
-Every supported tool reaches the same Herdr preparation and last-moment identity revalidation before its unchanged launch template runs, while Muse, Gemini, Rovo, and Agy remain inapplicable only to secondmate relaunch because their existing adapter contract supports crewmates and scouts only.
+Every supported tool reaches the same Herdr preparation and identity revalidation immediately before each input in its unchanged launch template, while Muse, Gemini, Rovo, and Agy remain inapplicable only to secondmate relaunch because their existing adapter contract supports crewmates and scouts only.
 These commands are the guards that refresh this record; run them after every Herdr or Pi upgrade rather than trusting the versions above.
 
 For Pi on Herdr 0.9.0, `herdr agent get` reflects whether the agent process remains live; its registration does not persist merely because the pane and parent shell do.
