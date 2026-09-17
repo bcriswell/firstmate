@@ -22,7 +22,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-fail() { printf 'not ok - %s\n' "$1" >&2; cleanup_all; exit 1; }
+fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
 pass() { printf 'ok - %s\n' "$1"; }
 
 command -v herdr >/dev/null 2>&1 || { echo "skip: herdr not found"; exit 0; }
@@ -36,15 +36,20 @@ export HERDR_SESSION="$SESSION"
 SCRATCH=
 LAB_OWNED=0
 cleanup_all() {
+  local status=$? teardown_status=0
+  trap - EXIT
   if [ "$LAB_OWNED" = 1 ]; then
     LAB_OWNED=0
-    "$HERDR_LAB_HELPER" teardown "$SESSION"
+    "$HERDR_LAB_HELPER" teardown "$SESSION" || teardown_status=$?
   fi
-  [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"
+  [ -z "$SCRATCH" ] || rm -rf "$SCRATCH"
+  [ "$status" -ne 0 ] || status=$teardown_status
+  exit "$status"
 }
 trap cleanup_all EXIT
 LAB_OWNED=1
 "$HERDR_LAB_HELPER" provision "$SESSION" || fail "could not provision isolated Herdr lab session"
+lab() { "$HERDR_LAB_HELPER" run "$SESSION" "$@"; }
 
 SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/fm-control-herdr.XXXXXX")
 SCRATCH=$(cd "$SCRATCH" && pwd)
@@ -127,8 +132,7 @@ pass "real herdr: exit on a pane with no registered agent is idempotent success"
 # tests/fm-backend-herdr.test.sh; this is the check that notices when the real
 # client stops answering the way that logic expects, and it names the version so
 # a release change is attributed rather than mysterious.
-HERDR_VERSION=$(herdr --version 2>&1 | head -1)
-HERDR_VERSION=${HERDR_VERSION#herdr }
+HERDR_VERSION=$(lab status --json 2>/dev/null | jq -r '.client.version // "unknown"')
 version_fail() {  # <message>
   fail "$1 [herdr $HERDR_VERSION]"
 }
@@ -193,7 +197,7 @@ done
   || fail "the relaunched Herdr shell did not end up in its recorded worktree"
 [ "$(sed -n 's/^window=//p' "$HOME_DIR/state/hsmoke.meta" | tail -1)" = "$SESSION:$PANE_ID" ] \
   || fail "the Herdr relaunch replaced its endpoint instead of reusing it"
-herdr pane get "$PANE_ID" --session "$SESSION" >/dev/null 2>&1 \
+lab pane get "$PANE_ID" >/dev/null 2>&1 \
   || fail "the Herdr relaunch removed the endpoint it was required to reuse"
 awk -F= '$1 == "harness" {$0="harness=claude"} {print}' "$HOME_DIR/state/hsmoke.meta" \
   > "$HOME_DIR/state/hsmoke.meta.tmp"
@@ -268,6 +272,76 @@ REROOT_LIVE=$(cd "$REROOT_LIVE" && pwd -P)
 [ ! -e "$PROJ/HERDR_SUBSTITUTED" ] || fail "worktree path executed command substitution"
 pass "real herdr: an exact agent-free endpoint safely re-roots to an injection-resistant recorded worktree before replacement launch"
 
+# --- no registration but a live foreground command: refuse every input ------
+#
+# Registration absence is not shell-idleness proof. This is the counterexample
+# to upstream's simpler recovery path: a drifted pane with sleep in the
+# foreground still classifies recoverable at the registration layer, but it
+# must receive neither a reroot command nor replacement-launch input.
+BUSY_ID=hbusy
+BUSY_WT="$SCRATCH/busy-wt"
+git -C "$PROJ" worktree add --quiet -b hbusy "$BUSY_WT"
+mkdir -p "$HOME_DIR/data/$BUSY_ID"
+cat > "$HOME_DIR/data/$BUSY_ID/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Refuse relaunch input while an unregistered foreground command is still busy.
+
+## Firstmate spec
+Preserve the exact endpoint and isolated worktree.
+EOF
+BUSY_IDS=$(fm_backend_herdr_create_task "$CONTAINER" "fm-$BUSY_ID" "$PROJ" "") \
+  || fail "could not create busy no-registration relaunch pane"
+read -r BUSY_TAB_ID BUSY_PANE_ID <<EOF
+$BUSY_IDS
+EOF
+[ -n "$BUSY_TAB_ID" ] && [ -n "$BUSY_PANE_ID" ] || fail "busy relaunch pane returned incomplete ids"
+{
+  echo "window=$SESSION:$BUSY_PANE_ID"
+  echo "endpoint_task_id=$BUSY_ID"
+  echo "worktree=$BUSY_WT"
+  echo "project=$PROJ"
+  echo "harness=pi"
+  echo "kind=ship"
+  echo "mode=no-mistakes"
+  echo "yolo=off"
+  echo "model=default"
+  echo "effort=default"
+  echo "backend=herdr"
+  echo "herdr_session=$SESSION"
+  echo "herdr_workspace_id=$WORKSPACE_ID"
+  echo "herdr_tab_id=$BUSY_TAB_ID"
+  echo "herdr_pane_id=$BUSY_PANE_ID"
+} > "$HOME_DIR/state/$BUSY_ID.meta"
+lab pane run "$BUSY_PANE_ID" "sleep 900" >/dev/null 2>&1 \
+  || fail "could not start the unregistered foreground command"
+BUSY_PID=
+for _ in $(seq 1 50); do
+  BUSY_PID=$(lab pane process-info --pane "$BUSY_PANE_ID" 2>/dev/null \
+    | jq -r '.result.process_info.foreground_processes[]? | select(.name == "sleep") | .pid' | head -1)
+  [ -z "$BUSY_PID" ] || break
+  sleep 0.1
+done
+[ -n "$BUSY_PID" ] || version_fail "the unregistered sleep command never became the pane foreground"
+[ "$(fm_backend_agent_state herdr "$SESSION:$BUSY_PANE_ID")" = dead ] \
+  || fail "the busy no-registration counterexample did not reach the recoverable registration verdict"
+BUSY_MARKER="$SCRATCH/busy-launch-marker"
+if OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
+  "$ROOT/bin/fm-spawn.sh" "$BUSY_ID" --relaunch --harness "touch '$BUSY_MARKER'" 2>&1); then
+  fail "an unregistered endpoint with a foreground non-shell process accepted relaunch input: $OUT"
+fi
+case "$OUT" in
+  *"not one provably idle shell"*) : ;;
+  *) fail "the busy no-registration refusal did not identify the missing idle-shell proof: $OUT" ;;
+esac
+[ ! -e "$BUSY_MARKER" ] || fail "a busy unregistered endpoint received replacement-launch input"
+BUSY_AFTER=$(lab pane process-info --pane "$BUSY_PANE_ID" 2>/dev/null \
+  | jq -r '.result.process_info.foreground_processes[]? | select(.name == "sleep") | .pid' | head -1)
+[ "$BUSY_AFTER" = "$BUSY_PID" ] \
+  || fail "the busy unregistered endpoint received reroot or other shell input before refusal"
+lab pane send-keys "$BUSY_PANE_ID" ctrl+c >/dev/null 2>&1 || true
+pass "real herdr: an unregistered endpoint with a foreground non-shell process receives no reroot or replacement-launch input"
+
 # --- a registered agent WITH a live process: classification flips ------------
 #
 # A registration alone no longer proves an agent (issue #4115): the adapter
@@ -326,19 +400,16 @@ pass "real herdr: no control verb removed the endpoint or the task's local copy"
 # keeps the registration, which is exactly the shape a Pi crew leaves behind
 # when it exits under a nested shell. Before the fix this read `alive` forever:
 # exit waited out its timeout and refused, and relaunch was refused for good.
-# This runs BEFORE the fail-closed exit case below, whose typed exit command
-# stays buffered in the pane's tty while the stand-in ignores it and would be
-# replayed into the shell the moment the stand-in died.
-AGENT_PID=$(herdr pane process-info --pane "$PANE_ID" --session "$SESSION" 2>/dev/null \
+AGENT_PID=$(lab pane process-info --pane "$PANE_ID" 2>/dev/null \
   | jq -r '.result.process_info.foreground_processes[0].pid // empty')
 [ -n "$AGENT_PID" ] || fail "could not read the agent-named process pid from pane process-info"
 kill "$AGENT_PID" 2>/dev/null || fail "could not stop the agent-named process"
 wait_process_state shell 50 \
-  || version_fail "after the agent process exited the pane reads '$(fm_backend_herdr_pane_process_state "$SESSION" "$PANE_ID")' rather than 'shell' through pane process-info. Raw process-info: $(herdr pane process-info --pane "$PANE_ID" --session "$SESSION" 2>&1 | tr -d '\n')"
+  || version_fail "after the agent process exited the pane reads '$(fm_backend_herdr_pane_process_state "$SESSION" "$PANE_ID")' rather than 'shell' through pane process-info. Raw process-info: $(lab pane process-info --pane "$PANE_ID" 2>&1 | tr -d '\n')"
 
 # The divergence that makes this case non-vacuous: Herdr's own registry still
 # reports the agent, and only the process-level view disagrees.
-REGISTERED=$(herdr agent get "$PANE_ID" --session "$SESSION" 2>/dev/null | jq -r '.result.agent.agent_status // empty')
+REGISTERED=$(lab agent get "$PANE_ID" 2>/dev/null | jq -r '.result.agent.agent_status // empty')
 [ -n "$REGISTERED" ] \
   || version_fail "Herdr released the registration when the agent process exited, so this run cannot prove the stale-registration path; the classifier still reads dead through agent_not_found"
 
@@ -368,7 +439,7 @@ done
 [ -e "$SCRATCH/codex-launched" ] || fail "the replacement harness was not launched after the stale registration"
 [ "$(sed -n 's/^window=//p' "$HOME_DIR/state/hsmoke.meta" | tail -1)" = "$SESSION:$PANE_ID" ] \
   || fail "the relaunch replaced its endpoint instead of reusing it"
-herdr pane get "$PANE_ID" --session "$SESSION" >/dev/null 2>&1 \
+lab pane get "$PANE_ID" >/dev/null 2>&1 \
   || fail "the relaunch removed the endpoint it was required to reuse"
 [ -d "$WT" ] || fail "the relaunch must never remove the task's local copy"
 awk -F= '$1 == "harness" {$0="harness=claude"} {print}' "$HOME_DIR/state/hsmoke.meta" \
@@ -376,21 +447,124 @@ awk -F= '$1 == "harness" {$0="harness=claude"} {print}' "$HOME_DIR/state/hsmoke.
 mv "$HOME_DIR/state/hsmoke.meta.tmp" "$HOME_DIR/state/hsmoke.meta"
 pass "real herdr: a stale registration no longer blocks relaunch, and the endpoint and local copy survive"
 
-# Last, because it deliberately types a harness command into a foreground
-# process that ignores it: the registered agent cannot actually be stopped
-# that way, and the control plane must say so rather than report a stop it
-# did not achieve.
+# Last: the foreground process is a plain `sleep`, so the pane never draws any
+# recognized composer chrome. exit's composer-empty guard (bin/fm-control.sh)
+# therefore refuses before ever typing the exit command, rather than typing it
+# into a live agent that ignores it and reporting a stop that did not happen.
 start_agent_process
-herdr pane report-agent "$PANE_ID" --source fm-control-smoke --agent fm-control-smoke-agent \
-  --state idle --session "$SESSION" >/dev/null 2>&1 \
+lab pane report-agent "$PANE_ID" --source fm-control-smoke --agent fm-control-smoke-agent \
+  --state idle >/dev/null 2>&1 \
   || fail "could not re-register the live agent on the task pane"
 if OUT=$(run_control hsmoke exit 2>&1); then
-  fail "exit should fail closed when the agent does not stop: $OUT"
+  fail "exit should fail closed when the agent's composer is not proven empty: $OUT"
 fi
 case "$OUT" in
-  *"did not stop"*) : ;;
-  *) fail "the exit failure should say the agent did not stop, got: $OUT" ;;
+  *"not proven empty"*|*"visibly holds pending text"*) : ;;
+  *) fail "the exit failure should identify pending or unproven composer input, got: $OUT" ;;
 esac
-pass "real herdr: an agent that does not stop fails closed instead of being reported as stopped"
+pass "real herdr: an agent behind pending or unproven composer input fails closed instead of typing an exit command into it"
+
+# --- nested-shell task cleanup: landing proof still owns destruction --------
+#
+# Relaunch and cleanup use deliberately different shell predicates. A nested
+# Treehouse shell is eligible for relaunch, while cleanup first proves landing
+# and then closes the exact pane even when its focus-safe pane-death shortcut
+# cannot use the top-level childless-shell proof.
+cat > "$FAKEBIN/treehouse" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FM_TREEHOUSE_LOG:?}"
+exit 0
+EOF
+chmod +x "$FAKEBIN/treehouse"
+
+write_cleanup_meta() {  # <id> <wt> <tab> <pane>
+  local id=$1 wt=$2 tab=$3 pane=$4
+  {
+    echo "window=$SESSION:$pane"
+    echo "endpoint_task_id=$id"
+    echo "worktree=$wt"
+    echo "project=$PROJ"
+    echo "harness=pi"
+    echo "kind=ship"
+    echo "mode=no-mistakes"
+    echo "yolo=off"
+    echo "model=default"
+    echo "effort=default"
+    echo "backend=herdr"
+    echo "herdr_session=$SESSION"
+    echo "herdr_workspace_id=$WORKSPACE_ID"
+    echo "herdr_tab_id=$tab"
+    echo "herdr_pane_id=$pane"
+  } > "$HOME_DIR/state/$id.meta"
+}
+
+wait_nested_shell() {  # <pane>
+  local pane=$1 info outer foreground i=0
+  while [ "$i" -lt 50 ]; do
+    info=$(lab pane process-info --pane "$pane" 2>/dev/null || true)
+    outer=$(printf '%s' "$info" | jq -r '.result.process_info.shell_pid // empty' 2>/dev/null)
+    foreground=$(printf '%s' "$info" | jq -r '.result.process_info.foreground_processes[0].pid // empty' 2>/dev/null)
+    if [ -n "$outer" ] && [ -n "$foreground" ] && [ "$outer" != "$foreground" ]; then
+      return 0
+    fi
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
+CLEAN_ID=hclean-nested
+CLEAN_WT="$SCRATCH/clean-wt"
+git -C "$PROJ" worktree add --quiet -b "$CLEAN_ID" "$CLEAN_WT"
+CLEAN_IDS=$(fm_backend_herdr_create_task "$CONTAINER" "fm-$CLEAN_ID" "$CLEAN_WT" "") \
+  || fail "could not create landed nested cleanup pane"
+read -r CLEAN_TAB_ID CLEAN_PANE_ID <<EOF
+$CLEAN_IDS
+EOF
+write_cleanup_meta "$CLEAN_ID" "$CLEAN_WT" "$CLEAN_TAB_ID" "$CLEAN_PANE_ID"
+lab pane run "$CLEAN_PANE_ID" zsh >/dev/null 2>&1 || fail "could not enter the landed nested cleanup shell"
+wait_nested_shell "$CLEAN_PANE_ID" || version_fail "the landed cleanup pane did not reach a nested-shell shape"
+TREEHOUSE_LOG="$SCRATCH/clean-treehouse.log"
+: > "$TREEHOUSE_LOG"
+OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_TREEHOUSE_LOG="$TREEHOUSE_LOG" \
+  PATH="$FAKEBIN:$PATH" "$ROOT/bin/fm-teardown.sh" "$CLEAN_ID" 2>&1) \
+  || fail "landed nested-shell cleanup should complete: $OUT"
+[ ! -e "$HOME_DIR/state/$CLEAN_ID.meta" ] || fail "landed nested-shell cleanup retained task metadata"
+if lab pane get "$CLEAN_PANE_ID" >/dev/null 2>&1; then
+  fail "landed nested-shell cleanup left the exact pane alive"
+fi
+grep -Fq "return --force $CLEAN_WT" "$TREEHOUSE_LOG" \
+  || fail "landed nested-shell cleanup did not return the exact isolated worktree"
+pass "real herdr: landed work in a nested-shell endpoint closes the exact pane and returns its isolated worktree"
+
+DIRTY_ID=hdirty-nested
+DIRTY_WT="$SCRATCH/dirty-wt"
+git -C "$PROJ" worktree add --quiet -b "$DIRTY_ID" "$DIRTY_WT"
+DIRTY_IDS=$(fm_backend_herdr_create_task "$CONTAINER" "fm-$DIRTY_ID" "$DIRTY_WT" "") \
+  || fail "could not create unlanded nested cleanup pane"
+read -r DIRTY_TAB_ID DIRTY_PANE_ID <<EOF
+$DIRTY_IDS
+EOF
+write_cleanup_meta "$DIRTY_ID" "$DIRTY_WT" "$DIRTY_TAB_ID" "$DIRTY_PANE_ID"
+lab pane run "$DIRTY_PANE_ID" zsh >/dev/null 2>&1 || fail "could not enter the unlanded nested cleanup shell"
+wait_nested_shell "$DIRTY_PANE_ID" || version_fail "the unlanded cleanup pane did not reach a nested-shell shape"
+printf 'unlanded work\n' > "$DIRTY_WT/unlanded.txt"
+TREEHOUSE_LOG="$SCRATCH/dirty-treehouse.log"
+: > "$TREEHOUSE_LOG"
+if OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_TREEHOUSE_LOG="$TREEHOUSE_LOG" \
+  PATH="$FAKEBIN:$PATH" "$ROOT/bin/fm-teardown.sh" "$DIRTY_ID" 2>&1); then
+  fail "unlanded nested-shell cleanup unexpectedly succeeded: $OUT"
+fi
+case "$OUT" in
+  *"uncommitted changes"*) : ;;
+  *) fail "unlanded nested-shell cleanup did not name its preservation reason: $OUT" ;;
+esac
+[ -e "$HOME_DIR/state/$DIRTY_ID.meta" ] || fail "unlanded cleanup removed task metadata"
+[ -e "$DIRTY_WT/unlanded.txt" ] || fail "unlanded cleanup discarded the dirty file"
+[ ! -s "$TREEHOUSE_LOG" ] || fail "unlanded cleanup attempted to return the isolated worktree"
+lab pane get "$DIRTY_PANE_ID" >/dev/null 2>&1 \
+  || fail "unlanded cleanup closed the nested-shell endpoint"
+lab pane close "$DIRTY_PANE_ID" >/dev/null 2>&1 || true
+pass "real herdr: unlanded work refuses cleanup before the nested endpoint or isolated worktree is touched"
 
 fm_backend_herdr_kill "$SESSION:$PANE_ID" 2>/dev/null || true
