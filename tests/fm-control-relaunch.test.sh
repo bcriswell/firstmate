@@ -251,6 +251,15 @@ case "${1:-} ${2:-}" in
   "pane run")
     payload=${4:-}
     printf '%s\n' "$payload" >> "$D/run-commands"
+    if [ -e "$D/start-unregistered-after-first-launch-send" ] \
+       && [ ! -e "$D/unregistered-process-started" ]; then
+      case "$payload" in
+        "export GOTMPDIR="*)
+          printf 'busy' > "$D/shell"
+          : > "$D/unregistered-process-started"
+          ;;
+      esac
+    fi
     case "$payload" in
       "cd -- "*)
         if [ ! -e "$D/ignore-reroot" ]; then
@@ -1969,6 +1978,28 @@ test_herdr_spawn_relaunch_samples_processes_after_registration_before_launch() {
   pass "fm-spawn --relaunch: final process sampling catches an unregistered process started after registration lookup"
 }
 
+test_herdr_spawn_relaunch_revalidates_between_every_launch_send() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-inter-send-race hr34)
+  printf 'dead' > "$dir/fake/agent"
+  : > "$dir/fake/start-unregistered-after-first-launch-send"
+  out=$(run_spawn "$dir" hr34 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an unregistered process started after the first launch send should refuse"
+  [ -e "$dir/fake/unregistered-process-started" ] \
+    || fail "the inter-send unregistered-process race did not execute"
+  assert_contains "$out" "changed identity before replacement launch" \
+    "the inter-send race refusal should name the expired identity proof"
+  assert_grep "export GOTMPDIR=" "$dir/fake/run-commands" \
+    "the inter-send race must begin after the first launch send"
+  assert_no_grep "export FM_TASK_ID=" "$dir/fake/run-commands" \
+    "an endpoint that becomes busy after the first send must receive no later export"
+  [ ! -s "$dir/fake/pending" ] \
+    || fail "an endpoint that becomes busy after the first send received launch text"
+  assert_no_grep "encode launch-brief" "$dir/fake/submitted" \
+    "an endpoint that becomes busy after the first send must not submit a replacement launch"
+  pass "fm-spawn --relaunch: every later input is withheld after an inter-send process race"
+}
+
 # The path is deliberately hostile to shell composition. The fake Herdr pane
 # executes the real adapter's cd command through bash, so either marker appears
 # if quoting regresses rather than merely asserting the command's source text.
@@ -2215,6 +2246,7 @@ test_herdr_spawn_relaunch_accepts_a_stale_registration_over_a_nested_shell
 test_herdr_spawn_relaunch_refuses_an_already_rooted_busy_process
 test_herdr_spawn_relaunch_revalidates_before_launch_mutation
 test_herdr_spawn_relaunch_samples_processes_after_registration_before_launch
+test_herdr_spawn_relaunch_revalidates_between_every_launch_send
 test_herdr_spawn_relaunch_reroots_an_injection_resistant_path
 test_herdr_spawn_relaunch_refuses_live_and_ambiguous_endpoints
 test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutation

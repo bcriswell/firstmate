@@ -3247,6 +3247,10 @@ spawn_send_key() { # <target> <key>
   cmux) fm_backend_cmux_send_key "$1" "$2" "$W" ;;
   esac
 }
+spawn_relaunch_input_revalidate() {
+  [ "$RELAUNCH" -eq 1 ] && [ "$BACKEND" = herdr ] || return 0
+  fm_backend_herdr_relaunch_revalidate "$WT_TARGET"
+}
 
 kimi_capture() {
   fm_backend_capture "$BACKEND" "$T" 120 "$W" 2>/dev/null || true
@@ -4337,13 +4341,10 @@ spawn_record_traceparent() {
   return "$status"
 }
 
-if [ "$RELAUNCH" -eq 1 ] && [ "$BACKEND" = herdr ]; then
-  fm_backend_herdr_relaunch_revalidate "$WT_TARGET" || exit 1
-fi
-
 # Export GOTMPDIR into the crewmate's pane shell so the agent and every child
 # process (go build, go test, ...) inherit it. Sent before the launch command so
 # the env is set when the agent starts; the brief sleep lets the export land.
+spawn_relaunch_input_revalidate || exit 1
 spawn_send_text_line "$T" "export GOTMPDIR=$TASK_TMP/gotmp"
 # Mark the pane as a task worker so bin/fm-test-run.sh can refuse to run the
 # suite in the repository's primary checkout. Ship and scout workers are the
@@ -4351,12 +4352,14 @@ spawn_send_text_line "$T" "export GOTMPDIR=$TASK_TMP/gotmp"
 # The id reached a validated bare-slug charset above, so it carries no shell
 # syntax of its own.
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
+  spawn_relaunch_input_revalidate || exit 1
   spawn_send_text_line "$T" "export FM_TASK_ID=$ID"
 fi
 # Send through the exact channel that already ships GOTMPDIR, so every backend
 # and harness - ship, scout, and secondmate - gets it before launch. Skipped
 # entirely when trace context is off.
 if [ -n "$SPAWN_TRACEPARENT" ]; then
+  spawn_relaunch_input_revalidate || exit 1
   if spawn_send_text_line "$T" "export TRACEPARENT=$SPAWN_TRACEPARENT"; then
     if ! spawn_record_traceparent; then
       LAUNCH="unset TRACEPARENT; $LAUNCH"
@@ -4391,12 +4394,14 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
   LAUNCH="$LAUNCH_ENV_PREFIX /bin/sh -c $(shell_quote "$LAUNCH")"
 fi
 sleep 0.3
+spawn_relaunch_input_revalidate || exit 1
 spawn_send_literal "$T" "$LAUNCH"
 sleep 0.3
 if [ "${HERDR_PROJECTED:-0}" -eq 1 ]; then
   HERDR_PROJECTION_ABORT_CLEANUP=0
   spawn_herdr_presentation_order_lock_release
 fi
+spawn_relaunch_input_revalidate || exit 1
 spawn_send_key "$T" Enter
 if [ "$HARNESS" = kimi ]; then
   if ! kimi_wait_for_ready; then
