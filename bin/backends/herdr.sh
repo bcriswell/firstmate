@@ -3081,10 +3081,10 @@ fm_backend_herdr_relaunch_revalidate() {  # <target>
   fm_backend_herdr_parse_target "$target" || return 1
   [ "$FM_BACKEND_HERDR_SESSION" = "$FM_BACKEND_HERDR_RELAUNCH_SESSION" ] \
     && [ "$FM_BACKEND_HERDR_PANE" = "$FM_BACKEND_HERDR_RELAUNCH_PANE" ] || return 1
-  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample \
-    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE" 2>/dev/null || true)
   state=$(fm_backend_herdr_pane_agent_state \
     "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE")
+  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample \
+    "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE" 2>/dev/null || true)
   if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
     || [ "$resampled" != "$FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID" ]; then
     echo "error: Herdr relaunch endpoint $target changed identity before replacement launch; refusing before launch mutation" >&2
@@ -3142,10 +3142,10 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
       seen_real=$(cd -- "$seen" 2>/dev/null && pwd -P) || seen_real=
     fi
     if [ "$seen_real" = "$expected" ]; then
-      resampled=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane" 2>/dev/null || true)
       state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
-      if [ "$resampled" != "$shell_pid" ] \
-        || ! fm_backend_herdr_relaunch_state_is_agent_free "$state"; then
+      resampled=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane" 2>/dev/null || true)
+      if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
+        || [ "$resampled" != "$shell_pid" ]; then
         echo "error: Herdr relaunch endpoint $target changed identity while confirming its recorded worktree; refusing replacement launch" >&2
         return 1
       fi
@@ -3157,10 +3157,10 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
     path_attempt=$((path_attempt + 1))
     [ "$path_attempt" -ge 10 ] || sleep 0.5
   done
-  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample "$session" "$pane" 2>/dev/null || true)
   state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
-  if [ "$resampled" != "$shell_pid" ] \
-    || ! fm_backend_herdr_relaunch_state_is_agent_free "$state"; then
+  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample "$session" "$pane" 2>/dev/null || true)
+  if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
+    || [ "$resampled" != "$shell_pid" ]; then
     echo "error: Herdr relaunch endpoint $target changed identity while waiting to re-root; refusing before shell mutation" >&2
     return 1
   fi
@@ -3192,10 +3192,10 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
       seen_real=$(cd -- "$seen" 2>/dev/null && pwd -P) || seen_real=
     fi
     if [ "$seen_real" = "$expected" ]; then
-      resampled=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane" 2>/dev/null || true)
       state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
-      if [ "$resampled" != "$shell_pid" ] \
-        || ! fm_backend_herdr_relaunch_state_is_agent_free "$state"; then
+      resampled=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane" 2>/dev/null || true)
+      if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
+        || [ "$resampled" != "$shell_pid" ]; then
         echo "error: Herdr relaunch endpoint $target changed identity after re-rooting; refusing replacement launch" >&2
         return 1
       fi

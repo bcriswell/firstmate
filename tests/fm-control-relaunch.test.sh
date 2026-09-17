@@ -179,6 +179,15 @@ case "${1:-} ${2:-}" in
     fi
     ;;
   "agent get")
+    agent_get_count=0
+    [ ! -f "$D/agent-get-count" ] || agent_get_count=$(cat "$D/agent-get-count")
+    agent_get_count=$((agent_get_count + 1))
+    printf '%s' "$agent_get_count" > "$D/agent-get-count"
+    if [ -e "$D/start-unregistered-on-fourth-agent-read" ] \
+       && [ "$agent_get_count" -eq 4 ]; then
+      printf 'busy' > "$D/shell"
+      : > "$D/unregistered-process-started"
+    fi
     case "$(cat "$D/agent")" in
       live|stale) printf '%s\n' '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}' ;;
       dead) printf '%s\n' '{"error":{"code":"agent_not_found"}}' ;;
@@ -1942,6 +1951,24 @@ test_herdr_spawn_relaunch_revalidates_before_launch_mutation() {
   pass "fm-spawn --relaunch: revalidates the exact Herdr idle shell before launch mutation"
 }
 
+test_herdr_spawn_relaunch_samples_processes_after_registration_before_launch() {
+  local dir out rc
+  dir=$(new_herdr_case herdr-unregistered-launch-race hr33)
+  printf 'dead' > "$dir/fake/agent"
+  : > "$dir/fake/start-unregistered-on-fourth-agent-read"
+  out=$(run_spawn "$dir" hr33 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "an unregistered process started during final relaunch validation should refuse"
+  [ -e "$dir/fake/unregistered-process-started" ] \
+    || fail "the unregistered-process race did not execute"
+  assert_contains "$out" "changed identity before replacement launch" \
+    "the unregistered-process race refusal should name the expired identity proof"
+  assert_no_grep "export GOTMPDIR=" "$dir/fake/run-commands" \
+    "an endpoint that becomes busy after its registration read must receive no launch input"
+  assert_no_grep "encode launch-brief" "$dir/fake/submitted" \
+    "an endpoint that becomes busy after its registration read must receive no replacement launch"
+  pass "fm-spawn --relaunch: final process sampling catches an unregistered process started after registration lookup"
+}
+
 # The path is deliberately hostile to shell composition. The fake Herdr pane
 # executes the real adapter's cd command through bash, so either marker appears
 # if quoting regresses rather than merely asserting the command's source text.
@@ -2187,6 +2214,7 @@ test_herdr_spawn_relaunch_accepts_an_already_rooted_nested_shell
 test_herdr_spawn_relaunch_accepts_a_stale_registration_over_a_nested_shell
 test_herdr_spawn_relaunch_refuses_an_already_rooted_busy_process
 test_herdr_spawn_relaunch_revalidates_before_launch_mutation
+test_herdr_spawn_relaunch_samples_processes_after_registration_before_launch
 test_herdr_spawn_relaunch_reroots_an_injection_resistant_path
 test_herdr_spawn_relaunch_refuses_live_and_ambiguous_endpoints
 test_herdr_spawn_relaunch_refuses_identity_and_worktree_ambiguity_before_mutation
