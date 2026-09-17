@@ -1,0 +1,5 @@
+# pi 0.84.2 under herdr 0.8.0: registered idle, foreground [{"name":"node","argv0":"pi"}]
+ok - real herdr 0.8.0 + pi 0.84.2: a running registered pi classifies alive at process level
+# herdr 0.8.0 kept the pi registration (idle) after /quit under a nested shell: the stale-registration branch is exercised
+ok - real herdr 0.8.0 + pi 0.84.2: the registration left behind by a quit pi reads stale-agent and recovers as dead
+ok - real herdr 0.8.0 + pi 0.84.2: a completed Pi relaunches from Treehouse's nested idle shell in the same endpoint and isolated worktree

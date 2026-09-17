@@ -1,0 +1,475 @@
++ set -u
++++ dirname tests/fm-control-herdr-smoke.test.sh
+++ cd tests/..
+++ pwd
++ ROOT=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
++ command -v herdr
++ command -v jq
++ HERDR_LAB_HELPER=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-herdr-lab.sh
++ '[' -x /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-herdr-lab.sh ']'
+++ /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-herdr-lab.sh name fm-control-smoke
++ SESSION=fm-lab-fm-control-smoke-8980-5078
++ unset HERDR_ENV HERDR_PANE_ID HERDR_SOCKET_PATH HERDR_TAB_ID HERDR_WORKSPACE_ID
++ export HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078
++ HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078
++ SCRATCH=
++ LAB_OWNED=0
++ trap cleanup_all EXIT
++ LAB_OWNED=1
++ /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-herdr-lab.sh provision fm-lab-fm-control-smoke-8980-5078
+++ mktemp -d /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T//fm-control-herdr.XXXXXX
++ SCRATCH=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T//fm-control-herdr.CIVyFy
+++ cd /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T//fm-control-herdr.CIVyFy
+++ pwd
++ SCRATCH=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy
++ HOME_DIR=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/home
++ mkdir -p /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/home/state /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/home/data/hsmoke
++ cat
++ PROJ=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj
++ WT=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt
++ mkdir -p /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj
++ git -C /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj init -q
++ printf '# proj\n'
++ git -C /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj add README.md
++ git -C /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj -c 'user.name=Firstmate Tests' -c user.email=tests@example.invalid commit -qm initial
++ git -C /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj worktree add --quiet -b hsmoke /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt
+++ cd /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj
+++ pwd -P
++ PROJ_REAL=/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj
+++ cd /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt
+++ pwd -P
++ WT_REAL=/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt
++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-backend.sh
+++ FM_BACKEND_SCRIPT=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-backend.sh
+++++ dirname /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-backend.sh
++++ cd /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin
++++ pwd
+++ FM_BACKEND_LIB_DIR=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin
+++ unset FM_BACKEND_SCRIPT
++++ cd /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/..
++++ pwd
+++ FM_BACKEND_DEFAULT_ROOT=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
+++ FM_ROOT=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
+++ FM_HOME=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
+++ FM_BACKEND_CONFIG_DIR=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/config
+++ FM_BACKEND_KNOWN='tmux herdr zellij orca cmux'
+++ FM_BACKEND_SPAWN='tmux herdr zellij orca cmux'
+++ FM_BACKEND_CMUX_BUNDLE_ID=com.cmuxterm.app
++ fm_backend_source herdr
++ local name=herdr
++ fm_backend_validate herdr
++ local name=herdr
++ fm_backend_is_known herdr
++ fm_backend_list_contains 'tmux herdr zellij orca cmux' herdr
++ local 'list=tmux herdr zellij orca cmux' name=herdr
++ case "$name" in
++ case " $list " in
++ return 0
++ return 0
++ case "$name" in
++ '[' -z '' ']'
++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/backends/herdr.sh
+++++ dirname /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/backends/herdr.sh
++++ cd /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/backends/../..
++++ pwd
+++ FM_BACKEND_HERDR_ROOT=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
+++ FM_ROOT=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
+++ FM_HOME=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F
+++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-composer-lib.sh
++++ FM_COMPOSER_UNICODE_SPACES=()
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0302\0205'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0302\0240'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0341\0232\0200'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0200'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0201'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0202'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0203'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0204'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0205'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0206'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0207'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0210'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0211'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0212'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0250'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0251'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0257'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0342\0201\0237'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
++++ printf -v _fm_composer_space_utf8 %b '\0343\0200\0200'
++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
++++ unset -v _fm_composer_space_octal _fm_composer_space_utf8
++++ FM_DELIVERY_BUSY_REGEX_DEFAULT='esc (to )?interrupt|Working(\.\.\.|…)|Ctrl\+c:cancel|ctrl\+c to stop|esc[[:space:]]+to[[:space:]]+cancel'
++++ FM_DELIVERY_CLAUDE_BUSY_REGEX_DEFAULT='esc to interrupt|…[[:space:]]+\([0-9]+[smh]'
++++ FM_DELIVERY_CODEX_BUSY_REGEX_DEFAULT='esc to interrupt'
++++ FM_DELIVERY_OPENCODE_BUSY_REGEX_DEFAULT='esc interrupt'
++++ FM_DELIVERY_PI_BUSY_REGEX_DEFAULT='Working\.\.\.'
++++ FM_OMP_SPINNER_FRAMES_RE='(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏|⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷)'
++++ FM_DELIVERY_OMP_BUSY_REGEX_DEFAULT='Working…|^[[:space:]]*(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏|⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷)[[:space:]]+[0-9]+[smh]'
++++ FM_DELIVERY_GROK_BUSY_REGEX_DEFAULT='Ctrl\+c:cancel'
++++ FM_DELIVERY_CURSOR_BUSY_REGEX_DEFAULT='ctrl\+c to stop'
++++ FM_DELIVERY_AGY_BUSY_REGEX_DEFAULT='esc[[:space:]]+to[[:space:]]+cancel'
++++ FM_DELIVERY_KIMI_BUSY_REGEX_DEFAULT='^[[:space:]]*(🌑|🌒|🌓|🌔|🌕|🌖|🌗|🌘)[[:space:]]+·[[:space:]]+'
+++++ printf '%s\n' $'�\235�' $'�\200�' $'�\237�' $'�\206\222'
++++ FM_COMPOSER_AGENT_PROMPT_GLYPHS='❯
+›
+⟩
+→'
+++++ printf '%s\n' '>' '$' % '#'
++++ FM_COMPOSER_SHELL_PROMPT_GLYPHS='>
+$
+%
+#'
++++ FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything(\.\.\.|…)|^Plan, search, build anything$|^Add a follow-up$'
++++ FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT='^(Build|Plan)[[:space:]]+·[[:space:]]+'
++++ FM_COMPOSER_OMP_STATUS_RE_DEFAULT='^[[:space:]]*(π|󰵗)[[:space:]]+·[[:space:]]|^[[:space:]]*(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏|⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷)[[:space:]]+[0-9]+[smh]([[:space:]]|$)|[[:space:]]·[[:space:]].*[0-9]+(\.[0-9]+)?%/[0-9]+K'
++++ FM_COMPOSER_CAPTURE_LINES=20
++++ FM_COMPOSER_PI_MAX_LINES=8
++++ FM_COMPOSER_GROK_TITLE_OVERHANG=3
+++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-transition-lib.sh
++++ FM_TRANSITION_FIELD_SEP='	'
+++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-agent-process-lib.sh
+++++ dirname -- /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-agent-process-lib.sh
++++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-session-lock-lib.sh
++++++ dirname -- /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-session-lock-lib.sh
+++++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-cursor-lib.sh
++++++ FM_CURSOR_PROBE_TIMEOUT=10
+++++ FM_HARNESS_RE='claude|codex|opencode|grok|kimi|^pi$|^pi-signed$|^omp$'
+++++ FM_HARNESS_NAMES=(claude codex opencode grok kimi pi-signed pi omp)
+++++ FM_HARNESS_IS_CLAUDE=0
+++++ dirname -- /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-agent-process-lib.sh
++++ . /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-gemini-lib.sh
+++ FM_BACKEND_HERDR_MIN_PROTOCOL=14
+++ FM_BACKEND_HERDR_MIN_EVENTS_PROTOCOL=16
+++ FM_BACKEND_HERDR_MIN_WORKSPACE_MOVE_PROTOCOL=16
+++ FM_BACKEND_HERDR_MIN_PRESENTATION_PROTOCOL=19
+++ FM_BACKEND_HERDR_MIN_PRESENTATION_VERSION=0.8.0
+++ FM_BACKEND_HERDR_PRESENTATION_FLOOR_MARKER_PREFIX=.herdr-presentation-floor-
+++ FM_BACKEND_HERDR_ESCALATED_PREFIX=.herdr-escalated-
+++ FM_BACKEND_HERDR_SECONDMATE_MARKER=.fm-secondmate-home
+++ FM_BACKEND_HERDR_PRESENTATION_JOURNAL_SUFFIX=.herdr-presentation
+++ FM_BACKEND_HERDR_PRESENTATION_CONFIG=herdr-presentation-spaces
+++ FM_BACKEND_HERDR_RELAUNCH_SESSION=
+++ FM_BACKEND_HERDR_RELAUNCH_PANE=
+++ FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID=
+++ FM_BACKEND_HERDR_SUBMIT_POLLS=6
+++ FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0.6
++ _FM_BACKEND_HERDR_SOURCED=1
+++ fm_backend_herdr_container_ensure /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt
+++ local cwd=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt relationship=launcher-home session label status
+++ fm_backend_herdr_version_check
+++ fm_backend_herdr_tool_check
+++ command -v herdr
+++ command -v jq
+++ return 0
+++ local status protocol version
++++ herdr status --json
+++ status='{"client":{"version":"0.8.0","channel":"stable","protocol":19,"binary":"/opt/homebrew/bin/herdr","session":"fm-lab-fm-control-smoke-8980-5078"},"server":{"status":"running","running":true,"version":"0.8.0","protocol":19,"capabilities":{"live_handoff":true,"detached_server_daemon":false},"compatible":true,"socket":"/Users/bc/.config/herdr/sessions/fm-lab-fm-control-smoke-8980-5078/herdr.sock","session":"fm-lab-fm-control-smoke-8980-5078","restart_needed":false},"update":{"restart_needed":false}}'
++++ printf %s '{"client":{"version":"0.8.0","channel":"stable","protocol":19,"binary":"/opt/homebrew/bin/herdr","session":"fm-lab-fm-control-smoke-8980-5078"},"server":{"status":"running","running":true,"version":"0.8.0","protocol":19,"capabilities":{"live_handoff":true,"detached_server_daemon":false},"compatible":true,"socket":"/Users/bc/.config/herdr/sessions/fm-lab-fm-control-smoke-8980-5078/herdr.sock","session":"fm-lab-fm-control-smoke-8980-5078","restart_needed":false},"update":{"restart_needed":false}}'
++++ jq -r '.client.protocol // empty'
+++ protocol=19
++++ printf %s '{"client":{"version":"0.8.0","channel":"stable","protocol":19,"binary":"/opt/homebrew/bin/herdr","session":"fm-lab-fm-control-smoke-8980-5078"},"server":{"status":"running","running":true,"version":"0.8.0","protocol":19,"capabilities":{"live_handoff":true,"detached_server_daemon":false},"compatible":true,"socket":"/Users/bc/.config/herdr/sessions/fm-lab-fm-control-smoke-8980-5078/herdr.sock","session":"fm-lab-fm-control-smoke-8980-5078","restart_needed":false},"update":{"restart_needed":false}}'
++++ jq -r '.client.version // empty'
+++ version=0.8.0
+++ case "$protocol" in
+++ '[' 19 -lt 14 ']'
+++ return 0
++++ fm_backend_herdr_session
++++ printf %s fm-lab-fm-control-smoke-8980-5078
+++ session=fm-lab-fm-control-smoke-8980-5078
+++ fm_backend_herdr_server_ensure fm-lab-fm-control-smoke-8980-5078
+++ local session=fm-lab-fm-control-smoke-8980-5078 running out i
++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 status --json
++++ jq -r '.server.running // false'
+++ running=true
+++ '[' true = true ']'
+++ return 0
+++ fm_backend_herdr_workspace_ensure fm-lab-fm-control-smoke-8980-5078 /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt launcher-home
+++ local session=fm-lab-fm-control-smoke-8980-5078 cwd=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt relationship=launcher-home wsid out label matches count status
+++ FM_BACKEND_HERDR_WS_ID=
+++ FM_BACKEND_HERDR_WS_SEEDED_TAB_ID=
+++ '[' launcher-home = launcher-home ']'
+++ fm_backend_herdr_launcher_identity fm-lab-fm-control-smoke-8980-5078
+++ local session=fm-lab-fm-control-smoke-8980-5078 pane= claimed_session claimed_socket session_socket
+++ local pane_out tab_out list tab workspace
+++ FM_BACKEND_HERDR_LAUNCHER_PANE_ID=
+++ FM_BACKEND_HERDR_LAUNCHER_TAB_ID=
+++ FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID=
+++ '[' -n '' ']'
+++ return 2
+++ status=2
+++ case "$status" in
++++ fm_backend_herdr_workspace_label
++++ local marker=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/.fm-secondmate-home id
++++ '[' -f /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/.fm-secondmate-home ']'
++++ printf firstmate
+++ label=firstmate
++++ fm_backend_herdr_workspace_find_all fm-lab-fm-control-smoke-8980-5078
++++ local session=fm-lab-fm-control-smoke-8980-5078 label list
+++++ fm_backend_herdr_workspace_label
+++++ local marker=/Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/.fm-secondmate-home id
+++++ '[' -f /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/.fm-secondmate-home ']'
+++++ printf firstmate
++++ label=firstmate
+++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 workspace list
++++ list='{"id":"cli:workspace:list","result":{"type":"workspace_list","workspaces":[]}}'
++++ printf %s '{"id":"cli:workspace:list","result":{"type":"workspace_list","workspaces":[]}}'
++++ jq -r --arg want firstmate '.result.workspaces[]? | select(.label == $want) | .workspace_id'
+++ matches=
++++ printf %s ''
++++ grep -c '[^[:space:]]'
++++ true
+++ count=0
+++ '[' 0 -gt 1 ']'
+++ wsid=
+++ '[' -n '' ']'
++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 workspace create --cwd /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt --label firstmate --no-focus
+++ out='{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":24},"tab_id":"w1:t1","terminal_id":"term_65ba3a8dcd6b31","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"firstmate","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}'
++++ printf %s '{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":24},"tab_id":"w1:t1","terminal_id":"term_65ba3a8dcd6b31","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"firstmate","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}'
++++ jq -r '.result.workspace.workspace_id // empty'
+++ wsid=w1
+++ '[' -n w1 ']'
+++ FM_BACKEND_HERDR_WS_ID=w1
++++ printf %s '{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":24},"tab_id":"w1:t1","terminal_id":"term_65ba3a8dcd6b31","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"firstmate","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}'
++++ jq -r '.result.tab.tab_id // empty'
+++ FM_BACKEND_HERDR_WS_SEEDED_TAB_ID=w1:t1
+++ printf %s w1
+++ status=0
+++ '[' 0 -ne 3 ']'
+++ '[' 0 -ne 0 ']'
+++ '[' -z w1 ']'
+++ printf '%s:%s\t%s' fm-lab-fm-control-smoke-8980-5078 w1 w1:t1
++ CONTAINER_RAW='fm-lab-fm-control-smoke-8980-5078:w1	w1:t1'
++ CONTAINER=fm-lab-fm-control-smoke-8980-5078:w1
++ SEEDED_TAB_ID=w1:t1
++ WORKSPACE_ID=w1
+++ fm_backend_herdr_create_task fm-lab-fm-control-smoke-8980-5078:w1 fm-hsmoke /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt w1:t1
+++ local container=fm-lab-fm-control-smoke-8980-5078:w1 label=fm-hsmoke cwd=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt seeded_tab_id=w1:t1 session wsid list dup_tabs dup dup_pane dup_tab_ids out tab_id pane_id remaining_dup_tabs
+++ session=fm-lab-fm-control-smoke-8980-5078
+++ wsid=w1
++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 tab list --workspace w1
+++ list='{"id":"cli:tab:list","result":{"tabs":[{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"}],"type":"tab_list"}}'
++++ printf %s '{"id":"cli:tab:list","result":{"tabs":[{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"}],"type":"tab_list"}}'
++++ jq -r --arg want fm-hsmoke 'if (.result.tabs | type) == "array" then .result.tabs[] | select(.label == $want) | .tab_id else error("missing result.tabs") end'
+++ dup_tabs=
+++ dup_tab_ids=
+++ '[' -n '' ']'
++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 tab create --workspace w1 --cwd /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt --label fm-hsmoke --no-focus
+++ out='{"id":"cli:tab:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":false,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":false,"label":"fm-hsmoke","number":2,"pane_count":1,"tab_id":"w1:t2","workspace_id":"w1"},"type":"tab_created"}}'
++++ printf %s '{"id":"cli:tab:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":false,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":false,"label":"fm-hsmoke","number":2,"pane_count":1,"tab_id":"w1:t2","workspace_id":"w1"},"type":"tab_created"}}'
++++ jq -r '.result.tab.tab_id // empty'
+++ tab_id=w1:t2
++++ printf %s '{"id":"cli:tab:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":false,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":false,"label":"fm-hsmoke","number":2,"pane_count":1,"tab_id":"w1:t2","workspace_id":"w1"},"type":"tab_created"}}'
++++ jq -r '.result.root_pane.pane_id // empty'
+++ pane_id=w1:p2
+++ '[' -z w1:t2 ']'
+++ '[' -z w1:p2 ']'
+++ '[' -z w1:t1 ']'
+++ fm_backend_herdr_workspace_prune_seeded_default_tab fm-lab-fm-control-smoke-8980-5078 w1 w1:t1
+++ local session=fm-lab-fm-control-smoke-8980-5078 wsid=w1 tab_id=w1:t1 close_mode=direct tabs tab_count current_label pane_id agent_out agent_status
+++ '[' -n w1:t1 ']'
++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 tab list --workspace w1
+++ tabs='{"id":"cli:tab:list","result":{"tabs":[{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},{"agent_status":"unknown","focused":false,"label":"fm-hsmoke","number":2,"pane_count":1,"tab_id":"w1:t2","workspace_id":"w1"}],"type":"tab_list"}}'
++++ printf %s '{"id":"cli:tab:list","result":{"tabs":[{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},{"agent_status":"unknown","focused":false,"label":"fm-hsmoke","number":2,"pane_count":1,"tab_id":"w1:t2","workspace_id":"w1"}],"type":"tab_list"}}'
++++ jq -r '.result.tabs? // [] | length'
+++ tab_count=2
+++ case "$tab_count" in
++++ printf %s '{"id":"cli:tab:list","result":{"tabs":[{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},{"agent_status":"unknown","focused":false,"label":"fm-hsmoke","number":2,"pane_count":1,"tab_id":"w1:t2","workspace_id":"w1"}],"type":"tab_list"}}'
++++ jq -r --arg t w1:t1 '.result.tabs[]? | select(.tab_id == $t) | .label'
+++ current_label=1
+++ '[' 1 = 1 ']'
++++ fm_backend_herdr_pane_for_tab fm-lab-fm-control-smoke-8980-5078 w1 w1:t1
++++ local session=fm-lab-fm-control-smoke-8980-5078 wsid=w1 tab_id=w1:t1 panes
+++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 pane list --workspace w1
++++ panes='{"id":"cli:pane:list","result":{"panes":[{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t1","terminal_id":"term_65ba3a8dcd6b31","workspace_id":"w1"},{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":false,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"}],"type":"pane_list"}}'
++++ printf %s '{"id":"cli:pane:list","result":{"panes":[{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t1","terminal_id":"term_65ba3a8dcd6b31","workspace_id":"w1"},{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":false,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"}],"type":"pane_list"}}'
++++ jq -r --arg tab w1:t1 '.result.panes[]? | select(.tab_id == $tab) | .pane_id'
++++ head -1
+++ pane_id=w1:p1
+++ '[' -n w1:p1 ']'
++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 agent get w1:p1
+++ agent_out=
++++ printf %s ''
++++ jq -r '.result.agent.agent_status // empty'
+++ agent_status=
+++ '[' '' = working ']'
+++ '[' direct = focus-preserving ']'
+++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 pane close w1:p1
+++ '[' -n '' ']'
+++ printf '%s %s' w1:t2 w1:p2
++ TASK_IDS='w1:t2 w1:p2'
++ read -r TAB_ID PANE_ID
++ '[' -n w1:t2 ']'
++ '[' -n w1:p2 ']'
++ echo window=fm-lab-fm-control-smoke-8980-5078:w1:p2
++ echo endpoint_task_id=hsmoke
++ echo worktree=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt
++ echo project=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/proj
++ echo harness=claude
++ echo kind=ship
++ echo mode=no-mistakes
++ echo yolo=off
++ echo model=default
++ echo effort=default
++ echo backend=herdr
++ echo herdr_session=fm-lab-fm-control-smoke-8980-5078
++ echo herdr_workspace_id=w1
++ echo herdr_tab_id=w1:t2
++ echo herdr_pane_id=w1:p2
+++ run_control hsmoke exit
+++ env FM_HOME=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/home HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078 FM_SPAWN_NO_GUARD=1 FM_CONTROL_POLL=0.2 FM_CONTROL_EXIT_WAIT=2 /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-control.sh hsmoke exit
++ OUT='already-stopped hsmoke harness=claude backend=herdr endpoint=fm-lab-fm-control-smoke-8980-5078:w1:p2 worktree=/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt'
++ case "$OUT" in
++ :
++ pass 'real herdr: exit on a pane with no registered agent is idempotent success'
++ printf 'ok - %s\n' 'real herdr: exit on a pane with no registered agent is idempotent success'
+ok - real herdr: exit on a pane with no registered agent is idempotent success
+++ lab status --json
+++ jq -r '.client.version // "unknown"'
++ HERDR_VERSION=0.8.0
+++ fm_backend_agent_state herdr fm-lab-fm-control-smoke-8980-5078:w1:p2
+++ local backend=herdr target=fm-lab-fm-control-smoke-8980-5078:w1:p2
+++ fm_backend_source herdr
+++ local name=herdr
+++ fm_backend_validate herdr
+++ local name=herdr
+++ fm_backend_is_known herdr
+++ fm_backend_list_contains 'tmux herdr zellij orca cmux' herdr
+++ local 'list=tmux herdr zellij orca cmux' name=herdr
+++ case "$name" in
+++ case " $list " in
+++ return 0
+++ return 0
+++ case "$name" in
+++ '[' -z 1 ']'
+++ case "$backend" in
+++ fm_backend_herdr_agent_state fm-lab-fm-control-smoke-8980-5078:w1:p2
+++ local target=fm-lab-fm-control-smoke-8980-5078:w1:p2
+++ fm_backend_herdr_parse_target fm-lab-fm-control-smoke-8980-5078:w1:p2
+++ local target=fm-lab-fm-control-smoke-8980-5078:w1:p2
+++ FM_BACKEND_HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078
+++ FM_BACKEND_HERDR_PANE=w1:p2
+++ '[' -n fm-lab-fm-control-smoke-8980-5078 ']'
+++ '[' -n w1:p2 ']'
+++ '[' w1:p2 '!=' fm-lab-fm-control-smoke-8980-5078:w1:p2 ']'
+++ case "$(fm_backend_herdr_pane_agent_state "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")" in
++++ fm_backend_herdr_pane_agent_state fm-lab-fm-control-smoke-8980-5078 w1:p2
++++ local session=fm-lab-fm-control-smoke-8980-5078 pane_id=w1:p2 out code presence status
+++++ fm_backend_herdr_pane_presence_state fm-lab-fm-control-smoke-8980-5078 w1:p2
+++++ local session=fm-lab-fm-control-smoke-8980-5078 pane_id=w1:p2 out code pid
++++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 pane get w1:p2
+++++ out='+++++ local session=fm-lab-fm-control-smoke-8980-5078 rc=0 err failed_bin selected_bin client_bin=herdr
++++++ shift
++++++ '\''['\'' '\'''\'' = fm-lab-fm-control-smoke-8980-5078 '\'']'\''
++++++ '\''['\'' pane = server '\'']'\''
++++++ failed_bin=herdr
+++++++ HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078
+++++++ herdr pane get w1:p2 --session fm-lab-fm-control-smoke-8980-5078
+{"id":"cli:pane:get","result":{"pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"},"type":"pane_info"}}
++++++ err=
++++++ '\''['\'' 0 -ne 0 '\'']'\''
++++++ '\''['\'' -z '\'''\'' '\'']'\''
++++++ return 0'
++++++ printf %s '+++++ local session=fm-lab-fm-control-smoke-8980-5078 rc=0 err failed_bin selected_bin client_bin=herdr
++++++ shift
++++++ '\''['\'' '\'''\'' = fm-lab-fm-control-smoke-8980-5078 '\'']'\''
++++++ '\''['\'' pane = server '\'']'\''
++++++ failed_bin=herdr
+++++++ HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078
+++++++ herdr pane get w1:p2 --session fm-lab-fm-control-smoke-8980-5078
+{"id":"cli:pane:get","result":{"pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"},"type":"pane_info"}}
++++++ err=
++++++ '\''['\'' 0 -ne 0 '\'']'\''
++++++ '\''['\'' -z '\'''\'' '\'']'\''
++++++ return 0'
++++++ jq -r '.error.code // empty'
+++++ code=
+++++ '[' -n '' ']'
++++++ printf %s '+++++ local session=fm-lab-fm-control-smoke-8980-5078 rc=0 err failed_bin selected_bin client_bin=herdr
++++++ shift
++++++ '\''['\'' '\'''\'' = fm-lab-fm-control-smoke-8980-5078 '\'']'\''
++++++ '\''['\'' pane = server '\'']'\''
++++++ failed_bin=herdr
+++++++ HERDR_SESSION=fm-lab-fm-control-smoke-8980-5078
+++++++ herdr pane get w1:p2 --session fm-lab-fm-control-smoke-8980-5078
+{"id":"cli:pane:get","result":{"pane":{"agent_status":"unknown","cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","focused":true,"foreground_cwd":"/private/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy/wt","pane_id":"w1:p2","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":23},"tab_id":"w1:t2","terminal_id":"term_65ba3a8dd8b232","workspace_id":"w1"},"type":"pane_info"}}
++++++ err=
++++++ '\''['\'' 0 -ne 0 '\'']'\''
++++++ '\''['\'' -z '\'''\'' '\'']'\''
++++++ return 0'
++++++ jq -r '.result.pane.pane_id // empty'
+++++ pid=
+++++ '[' '' = w1:p2 ']'
+++++ printf unknown
++++ presence=unknown
++++ '[' unknown '!=' present ']'
++++ case "$presence" in
++++ printf %s unknown
++++ return 0
+++ case "$(fm_backend_herdr_server_running_state "$FM_BACKEND_HERDR_SESSION")" in
++++ fm_backend_herdr_server_running_state fm-lab-fm-control-smoke-8980-5078
++++ local session=fm-lab-fm-control-smoke-8980-5078 status
++++ command -v jq
+++++ fm_backend_herdr_cli fm-lab-fm-control-smoke-8980-5078 status --json
++++ status='{"client":{"version":"0.8.0","channel":"stable","protocol":19,"binary":"/opt/homebrew/bin/herdr","session":"fm-lab-fm-control-smoke-8980-5078"},"server":{"status":"running","running":true,"version":"0.8.0","protocol":19,"capabilities":{"live_handoff":true,"detached_server_daemon":false},"compatible":true,"socket":"/Users/bc/.config/herdr/sessions/fm-lab-fm-control-smoke-8980-5078/herdr.sock","session":"fm-lab-fm-control-smoke-8980-5078","restart_needed":false},"update":{"restart_needed":false}}'
++++ printf %s '{"client":{"version":"0.8.0","channel":"stable","protocol":19,"binary":"/opt/homebrew/bin/herdr","session":"fm-lab-fm-control-smoke-8980-5078"},"server":{"status":"running","running":true,"version":"0.8.0","protocol":19,"capabilities":{"live_handoff":true,"detached_server_daemon":false},"compatible":true,"socket":"/Users/bc/.config/herdr/sessions/fm-lab-fm-control-smoke-8980-5078/herdr.sock","session":"fm-lab-fm-control-smoke-8980-5078","restart_needed":false},"update":{"restart_needed":false}}'
++++ jq -r '
+    if .server.running == true then "running"
+    elif .server.running == false then "stopped"
+    else "unknown"
+    end
+  '
+++ printf unreadable
++ STATE=unreadable
++ '[' unreadable = dead ']'
++ version_fail 'a real, present, agent-free pane reads '\''unreadable'\'' rather than '\''dead'\''; every relaunch would be refused'
++ fail 'a real, present, agent-free pane reads '\''unreadable'\'' rather than '\''dead'\''; every relaunch would be refused [herdr 0.8.0]'
++ printf 'not ok - %s\n' 'a real, present, agent-free pane reads '\''unreadable'\'' rather than '\''dead'\''; every relaunch would be refused [herdr 0.8.0]'
+not ok - a real, present, agent-free pane reads 'unreadable' rather than 'dead'; every relaunch would be refused [herdr 0.8.0]
++ exit 1
++ cleanup_all
++ local status=1 teardown_status=0
++ trap - EXIT
++ '[' 1 = 1 ']'
++ LAB_OWNED=0
++ /Users/bc/.no-mistakes/worktrees/b3dd9b5e1673/01M2PDCVQX5VQQ618W0H6VQ05F/bin/fm-herdr-lab.sh teardown fm-lab-fm-control-smoke-8980-5078
++ '[' -z /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy ']'
++ rm -rf /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.CIVyFy
++ '[' 1 -ne 0 ']'
++ exit 1

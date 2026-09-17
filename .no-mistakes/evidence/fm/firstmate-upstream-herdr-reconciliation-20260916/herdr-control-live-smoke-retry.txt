@@ -1,0 +1,5 @@
+ok - real herdr: exit on a pane with no registered agent is idempotent success
+ok - real herdr 0.8.0: a gone session reads recoverable while a live pane and a malformed target do not
+warning: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-control-herdr.0zUJ1I/home/data/hsmoke/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+error: Herdr relaunch endpoint fm-lab-fm-control-smoke-99447-1472:w1:p2 changed identity before replacement launch; refusing before launch mutation
+not ok - a drifted, agent-free Herdr pane should be re-homed and relaunched: 
