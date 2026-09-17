@@ -71,11 +71,13 @@ No `/back` is needed. The first genuine message is the return signal:
   The gate keeps every open `blocked:` event until that blocker's own resolution is proven: remediate each immediately through the normal lifecycle, or explicitly reclassify it with a durable reason and close its decision key with `resolved [key=...]`, then run `bin/fm-afk-return.sh check`.
   Captain-verdict outcomes are listed under "waiting on you", but do not exempt open blockers because per-blocker provenance is deferred to phase 4.
   Once the record is archived, resume full per-wake responsiveness through the emitted primary-harness supervision protocol while blocker handling proceeds, so the gate never creates a blind wait.
-  Do not answer a Bearings request or perform any other ordinary captain work until the check exits successfully.
+  A Bearings request may be answered while the gate is open, and the digest surfaces the catch-up state as a Charted Next `(return-catchup)` warning row naming what still holds it.
+  Acting on the fleet - dispatching, steering, merging, or any other ordinary captain work - still waits until the check exits successfully.
 - A message **with** the current operational prefix (`FM_OPERATIONAL_PREFIX`, U+2063 INVISIBLE SEPARATOR followed by `FIRSTMATE_OP: `), or a legacy bare `FM_INJECT_MARK` daemon escalation -> stay away and process it.
 - Re-invoking `/afk` while already away -> stay away (refresh); this does **not** trigger an exit.
 
 Bias ambiguous cases toward exit: a present captain beats token savings, and a false exit is self-correcting (the captain re-runs `/afk`).
+When the captain wants this same token-saving supervision while staying present and chatting - ordinary messages should NOT exit it - that is `/quiet` (kunchenguid/firstmate#2356), not `/afk`.
 
 ## Orthogonal to approval authority
 
@@ -85,6 +87,7 @@ A PR ready for merge keeps the merge authority from `AGENTS.md` section 7, and a
 While the away-posture record exists, a merge proceeds only when that task's recorded yolo posture is on or its id is in the record's merge-grant list; otherwise it is held for the captain's return.
 A merge grant never releases a captain hold, and it expires when the away record is archived.
 `--allow-red` remains attended-only and is refused while the record exists.
+A merge under away authority must be synchronous; `fm-pr-merge.sh` refuses auto-merge and any GitHub queue state that cannot prove an immediate merge while the record exists.
 A mandate clause is the captain's explicit instruction given before leaving, recorded with its named object and condition; a clause is never inferred, never applied by analogy, and expires at return.
 Forbidden, destructive, irreversible, and security-sensitive actions are never pre-authorizable regardless of clause text, and no recorded clause is authority by itself.
 This release records clauses and does not execute them.

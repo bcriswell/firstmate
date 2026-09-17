@@ -185,6 +185,7 @@ Operational compromises:
 `tests/fm-herdr-session-cleanup-e2e.test.sh` covers the restored-shell cleanup in a guarded non-default named lab.
 `tests/fm-backend-herdr-focus-flash-e2e.test.sh` reproduces the raw explicit-close focus steal on the installed release and proves the focus-safe emptying-close plan removes a doomed workspace with no wrong-focus interval; [`verification/runtime-backends.md`](verification/runtime-backends.md#workspace-removal-focus-safety) owns the active versioned evidence.
 `tests/fm-backend-herdr-stale-active-tab-e2e.test.sh` proves a persisted-focused tab still closes when no foreground client is attached.
+`tests/fm-herdr-attached-viewer-live-e2e.test.sh` proves the other half against a real attached viewer, which `bin/fm-herdr-lab.sh viewer start` supplies over a pty sized before the fork; [`verification/runtime-backends.md`](verification/runtime-backends.md#attached-foreground-viewer) owns the active versioned evidence and the re-run trigger.
 
 ## Default-tab prune safety
 
@@ -287,14 +288,18 @@ Herdr keeps a Pi registration (`agent get` still reports `agent=pi` with its las
 So before a registered agent counts as live, the pane classifier reads `pane process-info` and the real process table through the shared harness-process classifier in `bin/fm-agent-process-lib.sh`, the same rule the tmux adapter proves liveness with: a harness in the foreground process group, or still a descendant of the pane shell, keeps the registration live; a foreground that is nothing but shells with no harness descendant is a `stale-agent` pane, agent-free with that explicit reason; a foreground holding anything else keeps the registration live, but only after the same bounded settle window the idle-shell proof uses, because an idle shell transiently hosts prompt helpers such as starship in its foreground group and the first agent or shell sample in that window decides; an unreadable process view makes the pane `unknown`, trusting neither the registration nor its absence.
 No registered status outranks the process view, because an agent killed mid-turn leaves `working` behind just as a quit one leaves `idle`, and the native busy verdict is verified the same way so a shell-only pane never reads busy.
 The `pane process-info` subcommand that this process-level proof depends on is present in every supported release client from the 0.7.1 floor upward (measured 2026-09-10 on the pinned 0.7.1, 0.7.3, 0.7.4, and 0.7.5 release clients - [verification](verification/runtime-backends.md) "Stale agent registration").
-The response shape the adapter parses (`result.type` of `pane_process_info`, `process_info.shell_pid`, and `foreground_processes` entries carrying `name`, `argv0`, `argv`, and `cmdline`) is verified live only on Herdr 0.9.0, with the idle-shell proof's narrower parse previously verified on 0.7.5.
-A server response below 0.9.0 has not been measured for this parse.
+The response shape the adapter parses (`result.type` of `pane_process_info`, `process_info.shell_pid`, and `foreground_processes` entries carrying `name`, `argv0`, `argv`, and `cmdline`) is verified live on Herdr 0.8.0 and 0.9.0, with the idle-shell proof's narrower parse previously verified on 0.7.5.
+A server response below 0.8.0 has not been measured for the full parse.
 An unreadable or unparseable process view reads `unknown`, which refuses lifecycle verbs and recovery rather than trusting the registration.
 
 The generic Herdr agent-liveness probe reuses that pane classifier, then applies one recovery-only exception.
 A structurally gone pane or a pane read from a session positively reported as having no running server becomes `missing`, a restored agent-less shell and a stale registration over a shell-only pane both become `dead`, a registered agent with a live process becomes `alive`, and every other unexpected read becomes `unreadable`.
 Neither the stopped-server exception nor the stale-registration verdict widens husk detection or any close authority; those paths still refuse an unreadable pane, and a `stale-agent` pane is reused by recovery, never closed as a husk, because the shell it holds may be a nested worktree shell.
 Native registration still identifies Pi by name where tmux would see a generic interpreter; the process-level proof only decides whether that registration is backed by a running process.
+A relaunch reuses an exact agent-free pane only after its foreground group settles to one recognized sleeping or idle shell whose process ancestry reaches Herdr's outer pane shell and no supported harness process exists anywhere below that outer shell, so both a top-level shell and the nested worktree shell left by `treehouse get` are eligible.
+A live or unregistered harness, non-shell foreground process, unreadable ancestry, multiple or unsettled foreground processes, or changed foreground-shell identity refuses before the next reroot or launch input.
+The relaunch path tracks that foreground-shell pid through cwd recovery and a final pre-launch revalidation; the stricter top-level childless-shell proof remains separate because pane-death cleanup has different authority.
+`tests/fm-control-relaunch.test.sh` pins this contract portably, `tests/fm-control-herdr-smoke.test.sh` pins the busy no-registration refusal against Herdr, and `tests/fm-herdr-pi-stale-registration-live-e2e.test.sh` composes real Pi exit with same-pane relaunch.
 `tests/fm-backend-herdr-agent-exit-shell-e2e.test.sh` pins the live-Pi versus leftover-shell distinction; [`verification/runtime-backends.md`](verification/runtime-backends.md#agent-lifecycle-control) owns the versioned evidence.
 
 The session-start sweep uses this probe.
@@ -369,6 +374,7 @@ tests/fm-backend-herdr-eventwait-smoke.test.sh
 tests/fm-control-herdr-smoke.test.sh
 tests/fm-herdr-session-cleanup.test.sh
 tests/fm-herdr-session-cleanup-e2e.test.sh
+tests/fm-herdr-attached-viewer-live-e2e.test.sh
 tests/fm-afk-inject-herdr-e2e.test.sh
 tests/fm-afk-pi-herdr-return-e2e.test.sh
 ```

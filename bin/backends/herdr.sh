@@ -1391,8 +1391,10 @@ fm_backend_herdr_pid_is_bare_shell() {  # <ps-bin> <pid>
 # samples), so the proof retries strict single samples for a bounded settle
 # window and succeeds on the first fully clean one; a genuinely busy pane
 # fails every sample and still refuses.
-# This is the single owner of the idle-shell proof; the session-start
-# projection cleanup and every pane-death close path both rely on it.
+# This is the single owner of the top-level childless-shell proof used by
+# session-start projection cleanup and pane-death close paths. Relaunch uses
+# its separate nested-aware foreground-shell proof below because it sends input
+# without acquiring cleanup authority.
 fm_backend_herdr_pane_idle_shell_pid() {  # <session> <pane-id>
   local attempt=0 max_attempts=${FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS:-10}
   while :; do
@@ -2117,6 +2119,57 @@ fm_backend_herdr_pane_process_state() {  # <session> <pane_id>
   printf '%s' "$verdict"
 }
 
+# fm_backend_herdr_descendant_agent_state: classify whether one process-table
+# snapshot rooted at a pane shell contains a supported harness. The ordinary
+# pane classifier preserves its historical tolerance for a descendant that
+# exits between the table and argv reads; relaunch passes strict so unreadable
+# descendants cannot grant input authority.
+fm_backend_herdr_descendant_agent_state() {  # <ps-bin> <pane-shell-pid> <rows> [strict]
+  local ps_bin=$1 shell_pid=$2 rows=$3 policy=${4:-lenient}
+  local pid name args argv0
+  printf '%s\n' "$rows" | awk -v shell="$shell_pid" '$1 == shell { found = 1 } END { exit(found ? 0 : 1) }' \
+    || { printf 'unreadable'; return 0; }
+  while IFS=$'\t' read -r pid name; do
+    [ -n "$pid" ] || continue
+    args=$(LC_ALL=C "$ps_bin" -p "$pid" -o args= 2>/dev/null) || {
+      [ "$policy" != strict ] || { printf 'unreadable'; return 0; }
+      continue
+    }
+    args=${args#"${args%%[![:space:]]*}"}
+    if [ -z "$args" ]; then
+      [ "$policy" != strict ] || { printf 'unreadable'; return 0; }
+      continue
+    fi
+    argv0=${args%%[[:space:]]*}
+    if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" = agent ]; then
+      printf 'agent'
+      return 0
+    fi
+  done <<EOF
+$(printf '%s\n' "$rows" | awk -v shell="$shell_pid" '
+  {
+    pid[NR] = $1; ppid[NR] = $2
+    line = $0
+    sub(/^[ \t]*[0-9]+[ \t]+[0-9]+[ \t]+/, "", line)
+    comm[NR] = line
+  }
+  END {
+    want[shell] = 1
+    changed = 1
+    while (changed) {
+      changed = 0
+      for (n = 1; n <= NR; n++) {
+        if ((ppid[n] in want) && !(pid[n] in want)) { want[pid[n]] = 1; changed = 1 }
+      }
+    }
+    for (n = 1; n <= NR; n++) {
+      if ((pid[n] in want) && pid[n] != shell) printf "%s\t%s\n", pid[n], comm[n]
+    }
+  }')
+EOF
+  printf 'clear'
+}
+
 # fm_backend_herdr_pane_process_state_sample: one instantaneous observation
 # for fm_backend_herdr_pane_process_state, which owns the verdict contract and
 # the settle retry.
@@ -2165,40 +2218,12 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
   ps_bin=${FM_HERDR_PS_BIN:-ps}
   command -v "$ps_bin" >/dev/null 2>&1 || { printf 'unreadable'; return 0; }
   rows=$(LC_ALL=C "$ps_bin" -axo pid=,ppid=,comm= 2>/dev/null) || { printf 'unreadable'; return 0; }
-  printf '%s\n' "$rows" | awk -v shell="$shell_pid" '$1 == shell { found = 1 } END { exit(found ? 0 : 1) }' \
-    || { printf 'unreadable'; return 0; }
-  while IFS=$'\t' read -r pid name; do
-    [ -n "$pid" ] || continue
-    args=$(LC_ALL=C "$ps_bin" -p "$pid" -o args= 2>/dev/null) || continue
-    args=${args#"${args%%[![:space:]]*}"}
-    argv0=${args%%[[:space:]]*}
-    if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" = agent ]; then
-      printf 'agent'
-      return 0
-    fi
-  done <<EOF
-$(printf '%s\n' "$rows" | awk -v shell="$shell_pid" '
-  {
-    pid[NR] = $1; ppid[NR] = $2
-    line = $0
-    sub(/^[ \t]*[0-9]+[ \t]+[0-9]+[ \t]+/, "", line)
-    comm[NR] = line
-  }
-  END {
-    want[shell] = 1
-    changed = 1
-    while (changed) {
-      changed = 0
-      for (n = 1; n <= NR; n++) {
-        if ((ppid[n] in want) && !(pid[n] in want)) { want[pid[n]] = 1; changed = 1 }
-      }
-    }
-    for (n = 1; n <= NR; n++) {
-      if ((pid[n] in want) && pid[n] != shell) printf "%s\t%s\n", pid[n], comm[n]
-    }
-  }')
-EOF
-  printf 'shell'
+  verdict=$(fm_backend_herdr_descendant_agent_state "$ps_bin" "$shell_pid" "$rows")
+  case "$verdict" in
+    agent) printf 'agent'; return 0 ;;
+    clear) printf 'shell'; return 0 ;;
+    *) printf 'unreadable'; return 0 ;;
+  esac
 }
 
 # fm_backend_herdr_pane_agent_state: classify <pane_id> in <session> as one of
@@ -2962,21 +2987,106 @@ fm_backend_herdr_relaunch_state_is_agent_free() {  # <pane-agent-state>
   return 1
 }
 
+# fm_backend_herdr_pane_relaunch_shell_pid: print the settled foreground shell
+# pid only when one exact pane is safe to receive relaunch input. Unlike
+# fm_backend_herdr_pane_idle_shell_pid, which deliberately proves a top-level,
+# childless shell before pane-death cleanup, this proof accepts the normal
+# Treehouse crew shape: one sleeping foreground shell may be a descendant of
+# Herdr's outer pane shell. The process-info view must name one foreground
+# process-group leader and one recognized shell, the operating-system process
+# table must agree on its group and ancestry back to the recognized pane shell,
+# and no descendant of that pane shell may classify as a supported harness.
+# Every unreadable, multiple, non-shell, non-idle, or changing sample refuses.
+# The relaunch caller also requires an explicit no-agent or process-verified
+# stale-agent state before this process proof grants any input authority.
+fm_backend_herdr_pane_relaunch_shell_pid() {  # <session> <pane-id>
+  local attempt=0 max_attempts=${FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS:-10}
+  while :; do
+    if fm_backend_herdr_pane_relaunch_shell_sample "$1" "$2"; then
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    [ "$attempt" -lt "$max_attempts" ] || return 1
+    sleep 0.1
+  done
+}
+
+# fm_backend_herdr_pane_relaunch_shell_sample: one strict instantaneous sample
+# for the bounded settled-foreground proof above.
+fm_backend_herdr_pane_relaunch_shell_sample() {  # <session> <pane-id>
+  local session=$1 pane=$2 info pane_shell_pid foreground_pgid count
+  local process_pid name argv0 shell_name rows stat actual_pgid ps_bin descendant_state
+  info=$(fm_backend_herdr_cli "$session" pane process-info --pane "$pane" 2>/dev/null) || return 1
+  printf '%s' "$info" | jq -e --arg pane "$pane" '
+    .result.type == "pane_process_info"
+    and .result.process_info.pane_id == $pane
+  ' >/dev/null 2>&1 || return 1
+  pane_shell_pid=$(printf '%s' "$info" | jq -er \
+    '.result.process_info.shell_pid | select(type == "number" and . > 1) | floor' 2>/dev/null) || return 1
+  foreground_pgid=$(printf '%s' "$info" | jq -er \
+    '.result.process_info.foreground_process_group_id | select(type == "number" and . > 1) | floor' 2>/dev/null) || return 1
+  count=$(printf '%s' "$info" | jq -er \
+    '.result.process_info.foreground_processes | select(type == "array") | length' 2>/dev/null) || return 1
+  [ "$count" -eq 1 ] || return 1
+  process_pid=$(printf '%s' "$info" | jq -er \
+    '.result.process_info.foreground_processes[0].pid | select(type == "number" and . > 1) | floor' 2>/dev/null) || return 1
+  [ "$process_pid" = "$foreground_pgid" ] || return 1
+  name=$(printf '%s' "$info" | jq -er \
+    '.result.process_info.foreground_processes[0].name | select(type == "string" and length > 0)' 2>/dev/null) || return 1
+  argv0=$(printf '%s' "$info" | jq -er '
+    .result.process_info.foreground_processes[0] as $process
+    | ($process.argv0 // $process.argv[0])
+    | select(type == "string" and length > 0)
+  ' 2>/dev/null) || return 1
+  shell_name=${name#-}
+  shell_name=${shell_name##*/}
+  argv0=${argv0#-}
+  argv0=${argv0##*/}
+  [ "$argv0" = "$shell_name" ] || return 1
+  case "$shell_name" in sh|bash|zsh|dash|ksh|fish) ;; *) return 1 ;; esac
+
+  ps_bin=${FM_HERDR_PS_BIN:-ps}
+  command -v "$ps_bin" >/dev/null 2>&1 || return 1
+  rows=$(LC_ALL=C "$ps_bin" -axo pid=,ppid=,comm= 2>/dev/null) || return 1
+  printf '%s\n' "$rows" | awk -v root="$pane_shell_pid" -v leaf="$process_pid" '
+    { parent[$1] = $2; found[$1]++ }
+    END {
+      if (found[root] != 1 || found[leaf] != 1) exit 1
+      current = leaf
+      steps = 0
+      while (current != root) {
+        if (!(current in parent) || parent[current] <= 1 || ++steps > NR) exit 1
+        current = parent[current]
+      }
+    }
+  ' || return 1
+  fm_backend_herdr_pid_is_bare_shell "$ps_bin" "$pane_shell_pid" || return 1
+  fm_backend_herdr_pid_is_bare_shell "$ps_bin" "$process_pid" || return 1
+  descendant_state=$(fm_backend_herdr_descendant_agent_state \
+    "$ps_bin" "$pane_shell_pid" "$rows" strict)
+  [ "$descendant_state" = clear ] || return 1
+  actual_pgid=$(LC_ALL=C "$ps_bin" -p "$process_pid" -o pgid= 2>/dev/null | tr -d '[:space:]') || return 1
+  [ "$actual_pgid" = "$foreground_pgid" ] || return 1
+  stat=$(LC_ALL=C "$ps_bin" -p "$process_pid" -o stat= 2>/dev/null | tr -d '[:space:]') || return 1
+  case "$stat" in S*|I*) ;; *) return 1 ;; esac
+  printf '%s\n' "$process_pid"
+}
+
 FM_BACKEND_HERDR_RELAUNCH_SESSION=
 FM_BACKEND_HERDR_RELAUNCH_PANE=
-FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
+FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID=
 
 fm_backend_herdr_relaunch_revalidate() {  # <target>
   local target=$1 state resampled
   fm_backend_herdr_parse_target "$target" || return 1
   [ "$FM_BACKEND_HERDR_SESSION" = "$FM_BACKEND_HERDR_RELAUNCH_SESSION" ] \
     && [ "$FM_BACKEND_HERDR_PANE" = "$FM_BACKEND_HERDR_RELAUNCH_PANE" ] || return 1
-  resampled=$(fm_backend_herdr_pane_idle_shell_sample \
+  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample \
     "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE" 2>/dev/null || true)
   state=$(fm_backend_herdr_pane_agent_state \
     "$FM_BACKEND_HERDR_RELAUNCH_SESSION" "$FM_BACKEND_HERDR_RELAUNCH_PANE")
   if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
-    || [ "$resampled" != "$FM_BACKEND_HERDR_RELAUNCH_SHELL_PID" ]; then
+    || [ "$resampled" != "$FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID" ]; then
     echo "error: Herdr relaunch endpoint $target changed identity before replacement launch; refusing before launch mutation" >&2
     return 1
   fi
@@ -2985,20 +3095,21 @@ fm_backend_herdr_relaunch_revalidate() {  # <target>
 # fm_backend_herdr_relaunch_reroot: prepare one exact, positively agent-free
 # Herdr endpoint in its recorded worktree before a replacement launch. The pane
 # must still be the exact target, pane state must positively prove no live agent,
-# and the foreground process must be one proved lone idle shell before its cwd
-# decides whether re-rooting is needed. Both no-agent and stale-agent are
-# positive because the latter proves Herdr retained only an exited agent's
-# registration over a shell-only pane. A matching cwd returns without mutation.
-# The positive agent-free state and shell pid are rechecked after cwd polling and
-# immediately before Ctrl+U clears any unsubmitted shell input. They are checked
-# again before the quoted cd, and physical cwd is verified afterward. Any
-# ambiguous read or identity change refuses.
+# and one settled idle foreground shell must be attributable to the outer pane
+# shell before its cwd decides whether re-rooting is needed. Both no-agent and
+# stale-agent are positive because the latter proves Herdr retained only an
+# exited agent's registration over a shell-only pane. A matching cwd returns
+# without mutation. The positive agent-free state and foreground-shell pid are
+# rechecked after cwd polling and immediately before Ctrl+U clears any
+# unsubmitted shell input. They are checked again before the quoted cd, and
+# physical cwd is verified afterward. Any ambiguous read or identity change
+# refuses.
 fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
   local target=$1 worktree=$2 session pane expected state shell_pid resampled command
   local seen seen_real path_attempt=0 attempt=0
   FM_BACKEND_HERDR_RELAUNCH_SESSION=
   FM_BACKEND_HERDR_RELAUNCH_PANE=
-  FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=
+  FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID=
   case "$worktree" in
     ''|*$'\n'*|*$'\r'*)
       echo "error: recorded worktree is not representable as one Herdr shell command" >&2
@@ -3020,8 +3131,8 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
     echo "error: Herdr relaunch endpoint $target is '$state', not positively agent-free; refusing replacement launch" >&2
     return 1
   }
-  shell_pid=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane") || {
-    echo "error: Herdr relaunch endpoint $target is not one provably idle shell; refusing replacement launch" >&2
+  shell_pid=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane") || {
+    echo "error: Herdr relaunch endpoint $target is not one provably idle shell in its foreground process group; refusing replacement launch" >&2
     return 1
   }
   while [ "$path_attempt" -lt 10 ]; do
@@ -3031,7 +3142,7 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
       seen_real=$(cd -- "$seen" 2>/dev/null && pwd -P) || seen_real=
     fi
     if [ "$seen_real" = "$expected" ]; then
-      resampled=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane" 2>/dev/null || true)
+      resampled=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane" 2>/dev/null || true)
       state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
       if [ "$resampled" != "$shell_pid" ] \
         || ! fm_backend_herdr_relaunch_state_is_agent_free "$state"; then
@@ -3040,13 +3151,13 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
       fi
       FM_BACKEND_HERDR_RELAUNCH_SESSION=$session
       FM_BACKEND_HERDR_RELAUNCH_PANE=$pane
-      FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=$shell_pid
+      FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID=$shell_pid
       return 0
     fi
     path_attempt=$((path_attempt + 1))
     [ "$path_attempt" -ge 10 ] || sleep 0.5
   done
-  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$session" "$pane" 2>/dev/null || true)
+  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample "$session" "$pane" 2>/dev/null || true)
   state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
   if [ "$resampled" != "$shell_pid" ] \
     || ! fm_backend_herdr_relaunch_state_is_agent_free "$state"; then
@@ -3058,7 +3169,7 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
     return 1
   }
   state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
-  resampled=$(fm_backend_herdr_pane_idle_shell_sample "$session" "$pane" 2>/dev/null || true)
+  resampled=$(fm_backend_herdr_pane_relaunch_shell_sample "$session" "$pane" 2>/dev/null || true)
   if ! fm_backend_herdr_relaunch_state_is_agent_free "$state" \
     || [ "$resampled" != "$shell_pid" ]; then
     echo "error: Herdr relaunch endpoint $target changed identity while preparing its shell; refusing to run cd" >&2
@@ -3081,7 +3192,7 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
       seen_real=$(cd -- "$seen" 2>/dev/null && pwd -P) || seen_real=
     fi
     if [ "$seen_real" = "$expected" ]; then
-      resampled=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane" 2>/dev/null || true)
+      resampled=$(fm_backend_herdr_pane_relaunch_shell_pid "$session" "$pane" 2>/dev/null || true)
       state=$(fm_backend_herdr_pane_agent_state "$session" "$pane")
       if [ "$resampled" != "$shell_pid" ] \
         || ! fm_backend_herdr_relaunch_state_is_agent_free "$state"; then
@@ -3090,7 +3201,7 @@ fm_backend_herdr_relaunch_reroot() {  # <target> <recorded-worktree>
       fi
       FM_BACKEND_HERDR_RELAUNCH_SESSION=$session
       FM_BACKEND_HERDR_RELAUNCH_PANE=$pane
-      FM_BACKEND_HERDR_RELAUNCH_SHELL_PID=$shell_pid
+      FM_BACKEND_HERDR_RELAUNCH_FOREGROUND_SHELL_PID=$shell_pid
       return 0
     fi
     attempt=$((attempt + 1))

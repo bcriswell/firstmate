@@ -43,12 +43,14 @@ An interrupt is not complete until the composer is empty.
 muse is the one verified adapter that restores the cancelled prompt back into its composer as real text, so its interrupt key is followed by a Ctrl+U clear; without it the next submitted line - including this plane's own exit command - would concatenate onto the restored prompt and submit both as one line.
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
+`exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict; a `pending` verdict refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
+
 **Teardown and discard are not verbs and will not become verbs.**
 `exit` stops an agent and preserves everything else.
 Removing a worktree, closing an endpoint, or discarding work stays with [`bin/fm-teardown.sh`](../bin/fm-teardown.sh), which owns the landed-work test.
 
 **`resume` is not a verb.**
-It is not deterministic across the verified adapters: codex, grok, and gemini resume only from a session id printed at exit, opencode continues the most recent session for the cwd, and claude, pi, pi-signed, omp, and kimi have no verified pane-resume contract.
+It is not deterministic across the verified adapters: codex, grok, and gemini resume only from a session id printed at exit, opencode continues the most recent session for the cwd, and claude, pi, pi-signed, omp, kimi, and agy have no verified pane-resume contract.
 `relaunch` covers the same need on every adapter, because the brief on disk - not a harness-private session - is the durable instruction.
 
 ## Transactional relaunch
@@ -70,10 +72,11 @@ It is not deterministic across the verified adapters: codex, grok, and gemini re
    A secondmate relaunch does not require one and never rewrites its standing charter.
 4. **Stop the old agent** through the `exit` verb, with its postcondition.
 5. **Launch the replacement** through its single owner, `bin/fm-spawn.sh --relaunch`, which adopts the recorded endpoint and worktree instead of creating either, clears the previous harness's per-task wiring, and arms a fresh busy generation.
-   Every Herdr relaunch first proves that the exact endpoint is positively agent-free and its foreground process is one idle shell, including when its exposed shell is already in the recorded worktree; an already-rooted endpoint is then left unmutated.
-   For a drifted shell, the adapter revalidates a positively agent-free process state and the exact idle-shell pid immediately before clearing unsubmitted shell input, checks them again before running a shell-quoted `cd` to the already-validated recorded worktree, and verifies both agent-free state and physical cwd afterward.
-   After all remaining launch setup, the adapter revalidates the exact endpoint, agent-free state, and the same idle-shell pid immediately before the first environment export or other replacement-launch input.
-   Other backends and every ambiguous Herdr state retain the wrong-worktree refusal.
+   Every Herdr relaunch first proves that the exact endpoint is positively agent-free, its settled foreground process group contains one recognized idle shell attributable to Herdr's outer pane shell, and no supported harness process exists anywhere below that outer shell; this accepts the nested shell left by `treehouse get`, while an already-rooted endpoint is left unmutated.
+   For a drifted shell, the adapter revalidates the positively agent-free process state and exact foreground-shell pid immediately before clearing unsubmitted shell input, checks them again before running a shell-quoted `cd` to the already-validated recorded worktree, and verifies both agent-free state and physical cwd afterward.
+   After all remaining launch setup, the adapter revalidates the exact endpoint, agent-free state, and same foreground-shell pid immediately before the first environment export or other replacement-launch input.
+   A live or unregistered harness, non-shell foreground process, unreadable ancestry, multiple or unsettled foreground processes, identity change, and every ambiguous Herdr state refuse before the next input.
+   Other backends retain the wrong-worktree refusal.
 
 Switching harness is therefore one ordinary relaunch rather than a separate mechanism.
 
@@ -103,8 +106,9 @@ Switching harness is therefore one ordinary relaunch rather than a separate mech
   zellij, orca, and cmux are refused rather than reported as successful blind.
 - An ambiguous or unreadable endpoint state refuses.
   Only a positively classified state acts.
+- `exit`'s composer-empty check, above, is itself a fail-closed boundary that `relaunch` inherits by stopping the old agent through `exit`.
 - `fm-spawn --relaunch` independently refuses unless the recorded endpoint is positively agent-free and the replacement can be proven to start in the recorded worktree.
-  Herdr follows the exact idle-shell preparation and last-moment revalidation in transactional relaunch step 5; any failed proof refuses before the next mutation.
+  Herdr follows the nested-aware foreground-shell preparation and last-moment revalidation in transactional relaunch step 5; any failed proof refuses before the next input.
   Tmux retains the direct wrong-worktree refusal, and zellij, Orca, and cmux remain ineligible because they cannot prove the prior agent stopped.
 
 ## Capability matrix
@@ -119,11 +123,11 @@ Backend capability comes from each adapter's real surface, not from a policy cho
 | cmux | yes | yes | yes | yes | no |
 | orca | no | yes | yes | no | no |
 
-Per-harness interrupt keys, repeat counts, composer clears, exit commands, and supported task kinds live in `bin/fm-control-lib.sh` and are exercised for every verified harness by `tests/fm-control.test.sh`.
+Per-harness interrupt keys, repeat counts, composer clears, exit commands, and supported task kinds live in `bin/fm-control-lib.sh` and are exercised for every verified harness by `tests/fm-control.test.sh`, with adapters outside its lane pinning their control mechanics in their own harness suites.
 The empirical basis for each adapter's value is the `harness-adapters` skill's verification record for that adapter.
 
 ## Verification
 
-- `tests/fm-control.test.sh` - the adapter contract for every verified harness, the backend capability matrix, exact-id scoping, the closed verb list, the busy, idle, dead, and idempotent lifecycle cases, and marker non-regression, all against a stubbed session provider.
+- `tests/fm-control.test.sh` - the adapter contract for its verified-harness lane (adapters outside the lane pin their control mechanics in their own harness suites), the backend capability matrix, exact-id scoping, the closed verb list, the busy, idle, dead, and idempotent lifecycle cases, and marker non-regression, all against a stubbed session provider.
 - `tests/fm-control-relaunch.test.sh` - the relaunch transaction: identity preservation, harness switching, the progress note, checkpoint refusals, and rollback after a failed launch.
 - `tests/fm-control-herdr-smoke.test.sh` - the second state-verified backend against the real herdr binary, on an isolated throwaway lab session.
