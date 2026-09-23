@@ -366,6 +366,20 @@ wait_process_state() {  # <expected> <tries>
   return 1
 }
 
+wait_relaunch_shell_settled() {
+  local previous='' current='' i=0
+  while [ "$i" -lt 50 ]; do
+    current=$(fm_backend_herdr_pane_relaunch_shell_pid "$SESSION" "$PANE_ID" 2>/dev/null || true)
+    if [ -n "$current" ] && [ "$current" = "$previous" ]; then
+      return 0
+    fi
+    previous=$current
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
 start_agent_process() {
   fm_backend_herdr_send_text_line "$SESSION:$PANE_ID" "$AGENT_Q 900" \
     || fail "could not start the agent-named foreground process in the task pane"
@@ -427,6 +441,9 @@ case "$OUT" in
   *) fail "a stale-registration pane should report already-stopped, got: $OUT" ;;
 esac
 pass "real herdr: exit on a pane with a stale registration is idempotent success"
+
+wait_relaunch_shell_settled \
+  || version_fail "the shell exposed after the stale agent exited did not settle to one relaunch-safe process"
 
 rm -f "$SCRATCH/codex-launched"
 OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \

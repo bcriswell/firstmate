@@ -5,7 +5,7 @@ set -u
 # shellcheck source=tests/lib.sh disable=SC1091
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-ACTION_REF=32d396ac0f29135daf7fcb9964aba9d5f4e796d6
+ACTION_REF=f6441c96c352a18b9cadcaef6b6c7017e9ac3970
 TMP_ROOT=$(fm_test_tmproot fm-no-mistakes-required)
 VERIFY="$TMP_ROOT/verify.py"
 OLD_SHA=1111111111111111111111111111111111111111
@@ -76,8 +76,18 @@ test_workflow_requires_current_head_attestation() {
     action = steps.find { |step| step["uses"] == ARGV.fetch(1) }
     abort "pinned verifier action is missing" unless action
     inputs = action.fetch("with")
-    abort "pr-head-sha is not bound to the pull request head" unless inputs["pr-head-sha"] == "${{ github.event.pull_request.head.sha }}"
-    abort "attestation exemption remains configured" if inputs.key?("exempt-head-branches")
+    expected = {
+      "pr-body" => "${{ github.event.pull_request.body }}",
+      "pr-head-sha" => "${{ github.event.pull_request.head.sha }}",
+      "pr-head-ref" => "${{ github.event.pull_request.head.ref }}",
+      "pr-author" => "${{ github.event.pull_request.user.login }}",
+      "pr-number" => "${{ github.event.pull_request.number }}",
+    }
+    expected.each do |key, value|
+      abort "#{key} is not explicitly bound to this pull request" unless inputs[key] == value
+    end
+    abort "upstream maintainer exemption is missing" unless inputs["exempt-authors"] == "kunchenguid"
+    abort "attestation branch exemption remains configured" if inputs.key?("exempt-head-branches")
 RUBY
   then
     fail "the workflow does not enforce normal head-bound attestation"
