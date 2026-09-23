@@ -1,0 +1,26 @@
+Live upstream main
+9296f9b9d2566797b9a9aecaa5956bb8e471d2cd	refs/heads/main
+
+Corrected merge commit and parents
+commit afaf89019062038aeae9856f6cf370464a30d743
+parents 9e2efd91c4c0ad43bb0e53ffb6e52bb222fc5c27 9296f9b9d2566797b9a9aecaa5956bb8e471d2cd
+subject Merge latest upstream main
+
+GitHub-style upstream comparison (behind ahead)
+0	24
+
+Required ancestry checks
+fork reconciliation head retained: yes
+live upstream main retained: yes
+
+Recent combined graph
+*   afaf890 (HEAD) Merge latest upstream main
+|\  
+| * 9296f9b test: align portable test expectations with resolved host paths and fixture readiness (#5392)
+| * 7e0e60a fix(bin): prune a torn-down task's wake rows at teardown (#5390)
+* | 9e2efd9 (fm/firstmate-upstream-ancestry-merge-20260923) Merge upstream main and restore ancestry
+|\| 
+| * 8c47279 test: isolate the bearings render fixture from the shared Lavish store (#5391)
+| * 1e0e773 test: synchronize foreign queue stall checks with watcher progress (#5386)
+| * c00d5e1 feat: record fleet status immediately and emit PR-ready events (#5385)
+| * f0da72c test: close pr-check watcher test gaps (original flake already fixed by #5362 and #4878) (#5381)
