@@ -198,6 +198,7 @@ ANNOUNCED_DIR="$INBOX/.announced"
 REPLIES="$INBOX/.replies"
 
 REPLY_SEQ_LOCK="$INBOX/.replies.lock"
+ACTIVE_REQUEST_LOCK=""
 
 RECEIPTS_PENDING_BOUND=20
 RECEIPTS_HANDLED_BOUND=20
@@ -254,6 +255,32 @@ note_announced() {  # <id>
 mark_announced() {  # <id>
   mkdir -p "$ANNOUNCED_DIR"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$ANNOUNCED_DIR/$1"
+}
+
+request_lock_acquire() {  # <request-id>
+  local request_id=$1 lock owner
+  mkdir -p "$REQUESTS"
+  lock="$REQUESTS/.$request_id.lock"
+  while ! ln -s "$$" "$lock" 2>/dev/null; do
+    owner=$(readlink "$lock" 2>/dev/null || true)
+    case "$owner" in
+      ''|*[!0-9]*) sleep 0.1; continue ;;
+    esac
+    if kill -0 "$owner" 2>/dev/null; then
+      sleep 0.1
+      continue
+    fi
+    rm -f "$lock" 2>/dev/null || true
+  done
+  ACTIVE_REQUEST_LOCK=$lock
+}
+
+request_lock_release() {
+  [ -n "$ACTIVE_REQUEST_LOCK" ] || return 0
+  if [ "$(readlink "$ACTIVE_REQUEST_LOCK" 2>/dev/null || true)" = "$$" ]; then
+    rm -f "$ACTIVE_REQUEST_LOCK"
+  fi
+  ACTIVE_REQUEST_LOCK=""
 }
 
 # true | false | unknown, for the note recorded at <path>.
@@ -353,6 +380,11 @@ announce_note() {  # <id> <summary>
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
     return 2
   fi
+  if fm_wake_queued_keys_locked check | grep -Fqx -- "inbox:$id"; then
+    mark_announced "$id"
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    return 0
+  fi
   if fm_wake_append_locked check "inbox:$id" "check: captain inbox note $id - $summary"; then
     mark_announced "$id"
   else
@@ -434,11 +466,13 @@ queue_note() {
   local tmp id summary staging_name reserved
 
   if [ -n "$request_id" ]; then
+    request_lock_acquire "$request_id"
     reserved="$REQUESTS/$request_id"
     if [ -f "$reserved" ]; then
       id=$(publish_from_reservation "$request_id" "$source" "$body" "$extra") \
         || die "request id $request_id is reserved but unreadable; retry the same request id"
       summary=$(note_summary_from_body "$(read_note_body "$(note_path "$id")")")
+      request_lock_release
       finish_note_result replay "$id" "$request_id" "$json" "$strict" "$summary"
       return $?
     fi
@@ -451,11 +485,13 @@ queue_note() {
       id=$(publish_from_reservation "$request_id" "$source" "$body" "$extra") \
         || die "request id $request_id is reserved but unreadable; retry the same request id"
       summary=$(note_summary_from_body "$(read_note_body "$(note_path "$id")")")
+      request_lock_release
       finish_note_result replay "$id" "$request_id" "$json" "$strict" "$summary"
       return $?
     fi
     mv "$tmp" "$INBOX/$id.note"
     summary=$(note_summary_from_body "$body")
+    request_lock_release
     finish_note_result created "$id" "$request_id" "$json" "$strict" "$summary"
     return $?
   fi

@@ -123,6 +123,58 @@ assert_contains "$replay_human" "replay $first_id" \
 assert_equals "1" "$(count_notes "$home")" "human replay still does not duplicate"
 pass "the same request id returns the original note as a distinguishable replay"
 
+# --- concurrent publication keeps the claimant's body ----------------------
+
+home=$(make_home concurrent-request)
+fakebin="$TMP_ROOT/concurrent-fakebin"
+mkdir -p "$fakebin"
+real_mv=$(command -v mv)
+cat > "$fakebin/mv" <<'SH'
+#!/usr/bin/env bash
+if [ "$#" -eq 2 ] && case "$1" in */.staging-*) true ;; *) false ;; esac \
+  && grep -qF 'claimant body' "$1" 2>/dev/null; then
+  : > "$FM_TEST_MV_ENTERED"
+  while [ ! -e "$FM_TEST_MV_RELEASE" ]; do sleep 0.02; done
+fi
+exec "$FM_TEST_REAL_MV" "$@"
+SH
+chmod +x "$fakebin/mv"
+entered="$home/mv-entered"
+release="$home/mv-release"
+first_out="$home/first.out"
+second_out="$home/second.out"
+FM_TEST_MV_ENTERED="$entered" FM_TEST_MV_RELEASE="$release" FM_TEST_REAL_MV="$real_mv" \
+  PATH="$fakebin:$PATH" run_inbox "$home" note --request-id race-1 --json "claimant body" \
+  >"$first_out" 2>"$home/first.err" &
+first_pid=$!
+i=0
+while [ ! -e "$entered" ] && [ "$i" -lt 100 ]; do
+  sleep 0.02
+  i=$((i + 1))
+done
+assert_present "$entered" "the claimant never reached its delayed publication"
+run_inbox "$home" note --request-id race-1 --json "competing body" \
+  >"$second_out" 2>"$home/second.err" &
+second_pid=$!
+sleep 0.2
+kill -0 "$second_pid" 2>/dev/null \
+  || fail "the competing publisher did not wait for the live claimant"
+: > "$release"
+wait "$first_pid" || fail "the claimant request failed: $(cat "$home/first.err")"
+wait "$second_pid" || fail "the competing request failed: $(cat "$home/second.err")"
+assert_equals "created" "$(json_get outcome < "$first_out")" \
+  "the reservation claimant creates the note"
+assert_equals "replay" "$(json_get outcome < "$second_out")" \
+  "the competing caller replays the claimant's note"
+assert_equals "$(json_get id < "$first_out")" "$(json_get id < "$second_out")" \
+  "both concurrent callers return the same note id"
+race_body=$(run_inbox "$home" receipts --all-pending | json_get pending 0 body)
+assert_equals "claimant body" "$race_body" \
+  "the competing caller cannot replace the claimant's body"
+assert_equals "1" "$(count_notes "$home")" "concurrent request publication leaves one note"
+assert_equals "1" "$(count_wakes "$home")" "concurrent request publication leaves one wake"
+pass "a live request-id claimant exclusively publishes its reserved note"
+
 # --- crash window: reservation exists, note not yet published ---------------
 
 home=$(make_home crash-reserve)
@@ -206,6 +258,27 @@ repaired=$(run_inbox "$home" announce "$unannounced_id") \
 assert_contains "$repaired" "announced $unannounced_id" "the repair reports the announcement"
 assert_equals "1" "$(count_wakes "$home")" "repairing appends exactly one wake"
 pass "saved-but-unannounced notes are repairable without creating a second note"
+
+# A queued wake is the durable authority if the process died before writing its
+# announcement marker. A retry marks that existing row instead of appending it.
+home=$(make_home announce-marker-crash)
+set +e
+crashed=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+  "$isolated/bin/fm-inbox.sh" note --request-id marker-crash --json "wake already queued" 2>/dev/null)
+set -e
+crashed_id=$(printf '%s' "$crashed" | json_get id)
+printf '1700000000\t1\tcheck\tinbox:%s\tcheck: captain inbox note %s - wake already queued\n' \
+  "$crashed_id" "$crashed_id" > "$home/state/.wake-queue"
+printf '1\n' > "$home/state/.wake-queue.seq"
+recovered=$(run_inbox "$home" announce --json "$crashed_id") \
+  || fail "announce should recover an already-queued wake"
+assert_equals "True" "$(printf '%s' "$recovered" | json_get announced)" \
+  "the queued wake is recovered as announced"
+assert_present "$home/state/inbox/.announced/$crashed_id" \
+  "recovery writes the missing announcement marker"
+assert_equals "1" "$(count_wakes "$home")" \
+  "recovery after append-before-marker does not duplicate the wake"
+pass "an already-queued inbox wake repairs its missing marker without duplication"
 
 # A note firstmate already acknowledged needs no wake, so neither the repair
 # path nor a request-id replay appends one.

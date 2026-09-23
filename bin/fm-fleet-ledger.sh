@@ -141,7 +141,7 @@ append_status() { # <task> <status-line>
 }
 
 capture_task() { # <task>; caller holds the lock
-  local task=$1 log offset data complete tail line saved
+  local task=$1 log offset data complete tail complete_bytes line saved
   log="$STATE/$task.status"
   saved=$(offset_path "$task")
   [ -f "$log" ] && [ ! -L "$log" ] || return 0
@@ -154,7 +154,8 @@ capture_task() { # <task>; caller holds the lock
   data=$(tail -c "+$((offset + 1))" "$log"; printf x) || return 1
   data=${data%x}
   tail=${data##*$'\n'}
-  complete=${data%"$tail"}
+  complete_bytes=$((${#data} - ${#tail}))
+  complete=${data:0:complete_bytes}
   [ -n "$complete" ] || return 0
   while IFS= read -r line; do
     [ -n "${line//[[:space:]]/}" ] || continue

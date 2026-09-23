@@ -147,6 +147,28 @@ test_flag_off_writes_nothing() {
   pass "flag off: the whole lifecycle leaves no ledger file, offset, or lock"
 }
 
+test_partial_glob_character_waits_for_newline() {
+  local offset rows
+  make_case partial-glob on
+  printf '*' > "$HOME_DIR/state/$TASK.status"
+  in_home "$ROOT/bin/fm-fleet-ledger.sh" capture \
+    || fail "capture of a partial glob character failed"
+  [ ! -s "$HOME_DIR/state/fleet-ledger.jsonl" ] \
+    || fail "a partial glob character was emitted before its newline"
+  assert_absent "$HOME_DIR/state/.$TASK.fleet-ledger-offset" \
+    "a partial glob character advanced the ledger offset"
+  printf '\n' >> "$HOME_DIR/state/$TASK.status"
+  in_home "$ROOT/bin/fm-fleet-ledger.sh" capture \
+    || fail "capture after completing the glob-character line failed"
+  rows=$(ledger_rows '[.event, .task, .text]')
+  assert_equals "[\"task.status\",\"$TASK\",\"*\"]" "$rows" \
+    "the completed glob-character line is emitted exactly once"
+  offset=$(cat "$HOME_DIR/state/.$TASK.fleet-ledger-offset")
+  assert_equals "2" "$offset" "the offset advances only through the completed line"
+  pass "a partial glob character remains pending until its newline arrives"
+}
+
 test_flag_on_records_the_task_lifecycle
 test_flag_on_records_a_pr_merge_once
 test_flag_off_writes_nothing
+test_partial_glob_character_waits_for_newline
