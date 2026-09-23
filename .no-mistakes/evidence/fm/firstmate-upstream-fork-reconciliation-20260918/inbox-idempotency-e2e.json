@@ -1,0 +1,48 @@
+{
+  "concurrent_call_1": {
+    "schema": "fm-inbox-note.v1",
+    "outcome": "created",
+    "id": "1790152565-CeHcQ4",
+    "request_id": "reviewer-race",
+    "saved": true,
+    "announced": true,
+    "acknowledged": false,
+    "path": "/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T//fm-inbox-e2e.WHzWXU/state/inbox/1790152565-CeHcQ4.note"
+  },
+  "concurrent_call_2": {
+    "schema": "fm-inbox-note.v1",
+    "outcome": "replay",
+    "id": "1790152565-CeHcQ4",
+    "request_id": "reviewer-race",
+    "saved": true,
+    "announced": true,
+    "acknowledged": false,
+    "path": "/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T//fm-inbox-e2e.WHzWXU/state/inbox/1790152565-CeHcQ4.note"
+  },
+  "persisted_pending": [
+    {
+      "id": "1790152565-CeHcQ4",
+      "at": "2026-09-23T08:36:05Z",
+      "source": "text",
+      "request_id": "reviewer-race",
+      "body": "claimant body",
+      "acknowledged": false,
+      "announced": true,
+      "reply": null
+    }
+  ],
+  "note_count": 1,
+  "wake_count_before_recovery": 1,
+  "recovery": {
+    "schema": "fm-inbox-note.v1",
+    "outcome": "created",
+    "id": "1790152565-CeHcQ4",
+    "request_id": null,
+    "saved": true,
+    "announced": true,
+    "acknowledged": false,
+    "path": "/var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T//fm-inbox-e2e.WHzWXU/state/inbox/1790152565-CeHcQ4.note"
+  },
+  "wake_count_after_recovery": 1,
+  "announcement_marker_restored": true
+}

@@ -1,0 +1,16 @@
+{
+  "after_unterminated_star": {
+    "ledger_exists": false,
+    "offset_exists": false
+  },
+  "after_newline": {
+    "record": {
+      "event": "task.status",
+      "task": "reviewer-task",
+      "state": null,
+      "key": null,
+      "text": "*"
+    },
+    "saved_byte_offset": 2
+  }
+}
