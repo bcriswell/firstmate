@@ -181,7 +181,7 @@ assert_exact_merge() {  # <repo> <fork-tip> <upstream-tip>
   git -C "$repo" merge-base --is-ancestor "$upstream_tip" HEAD || fail "upstream tip is not retained as an ancestor"
   expected_tree=$(git -C "$repo" merge-tree --write-tree --no-messages "$fork_tip" "$upstream_tip") \
     || fail "could not derive expected merge tree"
-  actual_tree=$(git -C "$repo" rev-parse HEAD^{tree})
+  actual_tree=$(git -C "$repo" rev-parse 'HEAD^{tree}')
   assert_equals "$expected_tree" "$actual_tree" "merge commit tree differs from the canonical two-tip merge"
 }
 
