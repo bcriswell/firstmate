@@ -224,7 +224,7 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
   current_pid=${BASHPID:-}
   # macOS still ships Bash 3.2, which has no BASHPID.
   # A child shell's PPID is the portable identity of this exact subshell.
-  [ -n "$current_pid" ] || current_pid=$(bash -c 'printf "%s\n" "$PPID"')
+  [ -n "$current_pid" ] || current_pid=$(exec bash -c 'printf "%s\n" "$PPID"')
   [ "$owner" != "$current_pid" ] || owner=$PPID
   unset FM_EXEC_TIMED_OWNER_PID
   if command -v perl >/dev/null 2>&1; then

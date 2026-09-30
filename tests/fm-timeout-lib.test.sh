@@ -110,7 +110,7 @@ test_the_bound_replaces_the_calling_shell() {
     (
       . "$ROOT/bin/fm-timeout-lib.sh"
       current_pid=${BASHPID:-}
-      [ -n "$current_pid" ] || current_pid=$(bash -c 'printf "%s\n" "$PPID"')
+      [ -n "$current_pid" ] || current_pid=$(exec bash -c 'printf "%s\n" "$PPID"')
       printf '%s\n' "$current_pid" > "$dir/caller"
       PATH=$path fm_exec_timed 5 1 bash -c 'echo "$PPID" > "$1"' _ "$dir/parent"
     ) || fail "the bounded probe failed under PATH=$path"
@@ -214,7 +214,7 @@ test_an_owner_that_dies_during_startup_ends_the_command() {
     . "$1/bin/fm-timeout-lib.sh"
     (
       current_pid=${BASHPID:-}
-      [ -n "$current_pid" ] || current_pid=$(bash -c '\''printf "%s\n" "$PPID"'\'')
+      [ -n "$current_pid" ] || current_pid=$(exec bash -c '\''printf "%s\n" "$PPID"'\'')
       echo "$current_pid" > "$2/watchdog"
       while kill -0 "$$" 2>/dev/null; do sleep 0.05; done
       fm_exec_timed 60 1 bash -c "exec sleep 300"

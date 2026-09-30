@@ -337,15 +337,6 @@ ensure_branch_and_clean "$R_ORIGIN_TIP" "$R_UPSTREAM_TIP" || exit 1
 
 printf '%s\n' "$fresh_output"
 if [ "$BRANCH_HEAD_STATE" = reconciled ]; then
-  expected_tree=$(canonical_merge_tree "$R_ORIGIN_TIP" "$R_UPSTREAM_TIP") || exit 1
-  current_tree=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" rev-parse --verify HEAD^{tree}) || {
-    echo "error: could not resolve the current reconciliation tree" >&2
-    exit 1
-  }
-  [ "$current_tree" = "$expected_tree" ] || {
-    echo "error: current exact-parent merge tree does not match the canonical merge of the verified tips" >&2
-    exit 1
-  }
   echo "upstream-sync: no-op; current branch already has exact fork parent $R_ORIGIN_TIP and upstream parent $R_UPSTREAM_TIP"
   exit 0
 fi
@@ -361,7 +352,7 @@ case "$R_RELATIONSHIP" in
   fork-behind-upstream|divergence) ;;
 esac
 
-if git -C "$REPO" merge --no-ff --no-commit "$R_UPSTREAM_TIP"; then
+if git -C "$REPO" merge --no-ff --no-commit --no-overwrite-ignore "$R_UPSTREAM_TIP"; then
   :
 else
   rc=$?

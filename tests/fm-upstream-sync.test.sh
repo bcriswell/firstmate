@@ -51,6 +51,14 @@ if [ "$#" -ge 5 ] && [ "$1" = -C ] && [ "$2" = "$FM_TEST_REPO" ]; then
       exec "$FM_TEST_REAL_GIT" -C "$repo" fetch --no-tags "$transport" "$@"
       ;;
     merge:--no-ff)
+      if [ "${FM_TEST_RACE_MODE:-}" = ignored-file-collision ]; then
+        for arg in "$@"; do
+          if [ "$arg" = --no-overwrite-ignore ]; then
+            echo "error: untracked working tree files would be overwritten by merge" >&2
+            exit 1
+          fi
+        done
+      fi
       if [ "${FM_TEST_RACE_MODE:-}" = stage-after-merge ] && [ "$5" = --no-commit ]; then
         set +e
         "$FM_TEST_REAL_GIT" "$@"
@@ -305,8 +313,33 @@ test_conflict_leaves_recoverable_evidence() {
   git -C "$w/repo" rev-parse -q --verify MERGE_HEAD >/dev/null || fail "conflict did not retain MERGE_HEAD evidence"
   git -C "$w/repo" ls-files -u | grep -q . || fail "conflict did not retain unmerged index evidence"
   assert_equals "$before" "$(git -C "$w/repo" rev-parse HEAD)" "conflict advanced HEAD"
-  git -C "$w/repo" merge --abort
-  pass "upstream sync: conflicts stop with intact recoverable Git evidence"
+  printf 'manual-resolution\n' > "$w/repo/shared.txt"
+  git -C "$w/repo" add shared.txt
+  git -C "$w/repo" commit -qm "Resolve upstream conflict manually"
+  out=$(run_sync "$w" sync/conflict) || fail "manual conflict-resolution rerun failed:$out"
+  assert_contains "$out" "current branch already has exact fork parent" "manual conflict resolution was not accepted as an exact-merge no-op"
+  assert_grep "manual-resolution" "$w/repo/shared.txt" "manual conflict resolution was not preserved"
+  pass "upstream sync: conflicts remain recoverable and manual resolutions rerun as no-ops"
+}
+
+test_ignored_file_collision_refuses_without_discard() {
+  local w out rc before
+  w=$(new_world ignored-collision)
+  advance_fork "$w" .gitignore .env ignore-env
+  advance_upstream "$w" .env upstream-value track-env
+  out=$(run_drift "$w") || fail "ignored-collision drift check failed:$out"
+  make_sync_branch "$w" sync/ignored-collision
+  printf 'local-value\n' > "$w/repo/.env"
+  [ -z "$(git -C "$w/repo" status --porcelain=v1 --untracked-files=normal)" ] \
+    || fail "ignored collision fixture was not clean"
+  before=$(git -C "$w/repo" rev-parse HEAD)
+  out=$(FM_TEST_RACE_MODE=ignored-file-collision run_sync "$w" sync/ignored-collision); rc=$?
+  expect_code 1 "$rc" "ignored-file collision"
+  assert_contains "$out" "Git refused the upstream merge before leaving a recoverable merge state" "ignored-file collision was not refused at the merge boundary"
+  assert_grep "local-value" "$w/repo/.env" "ignored local file was overwritten"
+  assert_equals "$before" "$(git -C "$w/repo" rev-parse HEAD)" "ignored-file refusal advanced HEAD"
+  ! git -C "$w/repo" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 || fail "ignored-file refusal started a merge"
+  pass "upstream sync: ignored local files are preserved on merge collision"
 }
 
 test_concurrent_index_change_refuses() {
@@ -382,6 +415,46 @@ test_custom_remote_vcs_refuses() {
   pass "upstream drift: custom VCS helpers cannot bypass remote identity"
 }
 
+test_partial_clone_markers_refuse() {
+  local w out rc value git_dir
+  for value in true yes on 1; do
+    w=$(new_world "promisor-$value")
+    git -C "$w/repo" config remote.origin.promisor "$value"
+    out=$(run_drift "$w"); rc=$?
+    expect_code 1 "$rc" "promisor '$value' refusal"
+    assert_contains "$out" "partial/promisor remote" "promisor '$value' was not normalized and refused"
+    [ ! -e "$w/drift.result" ] || fail "promisor '$value' published a result"
+    [ ! -e "$w/transport.log" ] || fail "promisor '$value' reached a live remote operation"
+  done
+
+  w=$(new_world promisor-valueless)
+  git_dir=$(git -C "$w/repo" rev-parse --absolute-git-dir)
+  printf '\n[remote "valueless"]\n\tpromisor\n' >> "$git_dir/config"
+  out=$(run_drift "$w"); rc=$?
+  expect_code 1 "$rc" "valueless promisor refusal"
+  assert_contains "$out" "partial/promisor remote" "valueless promisor marker was not refused"
+  [ ! -e "$w/drift.result" ] || fail "valueless promisor marker published a result"
+  [ ! -e "$w/transport.log" ] || fail "valueless promisor marker reached a live remote operation"
+
+  w=$(new_world partial-extension)
+  git -C "$w/repo" config core.repositoryFormatVersion 1
+  git -C "$w/repo" config extensions.partialClone origin
+  out=$(run_drift "$w"); rc=$?
+  expect_code 1 "$rc" "partial-clone extension refusal"
+  assert_contains "$out" "partial/promisor remote" "partial-clone extension was not refused"
+  [ ! -e "$w/drift.result" ] || fail "partial-clone extension published a result"
+  [ ! -e "$w/transport.log" ] || fail "partial-clone extension reached a live remote operation"
+
+  w=$(new_world partial-filter)
+  git -C "$w/repo" config remote.origin.partialCloneFilter blob:none
+  out=$(run_drift "$w"); rc=$?
+  expect_code 1 "$rc" "partial-clone filter refusal"
+  assert_contains "$out" "partial/promisor remote" "partial-clone filter was not refused"
+  [ ! -e "$w/drift.result" ] || fail "partial-clone filter published a result"
+  [ ! -e "$w/transport.log" ] || fail "partial-clone filter reached a live remote operation"
+  pass "upstream drift: every partial-clone declaration refuses before transport"
+}
+
 test_unexpected_default_and_unavailable_remote_refuse() {
   local w out rc
   w=$(new_world bad-default)
@@ -420,10 +493,12 @@ test_divergence_preserves_both_histories
 test_stale_result_race_refuses
 test_wrong_branch_and_dirty_tree_refuse
 test_conflict_leaves_recoverable_evidence
+test_ignored_file_collision_refuses_without_discard
 test_concurrent_index_change_refuses
 test_concurrent_ref_change_refuses_cas
 test_unexpected_remote_identity_refuses
 test_effective_remote_rewrite_refuses
 test_custom_remote_vcs_refuses
+test_partial_clone_markers_refuse
 test_unexpected_default_and_unavailable_remote_refuse
 test_shallow_history_refuses

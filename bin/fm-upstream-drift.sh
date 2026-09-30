@@ -133,8 +133,24 @@ if [ "$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null || echo unk
   echo "error: repository history is shallow or its completeness cannot be proved; fetch complete history before checking drift" >&2
   exit 1
 fi
-if git -C "$REPO" config --get-regexp '^remote\..*\.promisor$' 2>/dev/null \
-  | grep -Eq '[[:space:]]true$'; then
+promisor_rc=0
+promisors=$(git -C "$REPO" config --type=bool --get-regexp '^remote\..*\.promisor$' 2>/dev/null) \
+  || promisor_rc=$?
+case "$promisor_rc" in
+  0)
+    if printf '%s\n' "$promisors" | grep -Eq '[[:space:]]true$'; then
+      echo "error: repository uses a partial/promisor remote; complete ancestry cannot be proved" >&2
+      exit 1
+    fi
+    ;;
+  1) ;;
+  *)
+    echo "error: repository has an invalid promisor-remote declaration; complete ancestry cannot be proved" >&2
+    exit 1
+    ;;
+esac
+if git -C "$REPO" config --get extensions.partialClone >/dev/null 2>&1 \
+  || git -C "$REPO" config --get-regexp '^remote\..*\.partialclonefilter$' >/dev/null 2>&1; then
   echo "error: repository uses a partial/promisor remote; complete ancestry cannot be proved" >&2
   exit 1
 fi
