@@ -50,6 +50,31 @@ if [ "$#" -ge 5 ] && [ "$1" = -C ] && [ "$2" = "$FM_TEST_REPO" ]; then
       shift 5
       exec "$FM_TEST_REAL_GIT" -C "$repo" fetch --no-tags "$transport" "$@"
       ;;
+    merge:--no-ff)
+      if [ "${FM_TEST_RACE_MODE:-}" = stage-after-merge ] && [ "$5" = --no-commit ]; then
+        set +e
+        "$FM_TEST_REAL_GIT" "$@"
+        rc=$?
+        set -e
+        if [ "$rc" -eq 0 ]; then
+          printf 'concurrent staged content\n' > "$repo/base.txt"
+          "$FM_TEST_REAL_GIT" -C "$repo" add -- base.txt
+          printf 'staged-after-merge\n' > "$FM_TEST_RACE_LOG"
+        fi
+        exit "$rc"
+      fi
+      ;;
+    update-ref:-m)
+      if [ "${FM_TEST_RACE_MODE:-}" = ref-before-cas ] && [ "$#" -ge 8 ]; then
+        ref=$6
+        old=$8
+        tree=$("$FM_TEST_REAL_GIT" -C "$repo" rev-parse --verify "$old^{tree}")
+        competitor=$("$FM_TEST_REAL_GIT" -C "$repo" commit-tree "$tree" -p "$old" -m "Concurrent branch advance")
+        "$FM_TEST_REAL_GIT" -C "$repo" update-ref -m "concurrent branch advance" "$ref" "$competitor" "$old"
+        printf '%s\n' "$competitor" > "$FM_TEST_RACE_LOG"
+        exec "$FM_TEST_REAL_GIT" "$@"
+      fi
+      ;;
   esac
 fi
 exec "$FM_TEST_REAL_GIT" "$@"
@@ -130,6 +155,8 @@ run_sync() {  # <world> <branch>
     FM_TEST_ORIGIN="$w/fork.git" \
     FM_TEST_UPSTREAM="$w/upstream.git" \
     FM_TEST_TRANSPORT_LOG="$w/transport.log" \
+    FM_TEST_RACE_MODE="${FM_TEST_RACE_MODE:-}" \
+    FM_TEST_RACE_LOG="$w/race.log" \
     "$SYNC" --repo "$w/repo" --result "$w/drift.result" --branch "$branch" 2>&1
 }
 
@@ -138,12 +165,16 @@ assert_relationship() {  # <world> <relationship>
 }
 
 assert_exact_merge() {  # <repo> <fork-tip> <upstream-tip>
-  local repo=$1 fork_tip=$2 upstream_tip=$3
+  local repo=$1 fork_tip=$2 upstream_tip=$3 expected_tree actual_tree
   assert_equals "$fork_tip" "$(git -C "$repo" rev-parse HEAD^1)" "merge first parent is not the fork tip"
   assert_equals "$upstream_tip" "$(git -C "$repo" rev-parse HEAD^2)" "merge second parent is not the upstream tip"
   ! git -C "$repo" rev-parse --verify HEAD^3 >/dev/null 2>&1 || fail "reconciliation commit has more than two parents"
   git -C "$repo" merge-base --is-ancestor "$fork_tip" HEAD || fail "fork tip is not retained as an ancestor"
   git -C "$repo" merge-base --is-ancestor "$upstream_tip" HEAD || fail "upstream tip is not retained as an ancestor"
+  expected_tree=$(git -C "$repo" merge-tree --write-tree --no-messages "$fork_tip" "$upstream_tip") \
+    || fail "could not derive expected merge tree"
+  actual_tree=$(git -C "$repo" rev-parse HEAD^{tree})
+  assert_equals "$expected_tree" "$actual_tree" "merge commit tree differs from the canonical two-tip merge"
 }
 
 # --- complete relationship classification and no-op paths ------------------
@@ -278,6 +309,42 @@ test_conflict_leaves_recoverable_evidence() {
   pass "upstream sync: conflicts stop with intact recoverable Git evidence"
 }
 
+test_concurrent_index_change_refuses() {
+  local w out rc fork_tip
+  w=$(new_world index-race)
+  advance_upstream "$w" upstream.txt upstream-change upstream-change
+  out=$(run_drift "$w") || fail "index-race drift check failed:$out"
+  make_sync_branch "$w" sync/index-race
+  fork_tip=$(git -C "$w/repo" rev-parse HEAD)
+  out=$(FM_TEST_RACE_MODE=stage-after-merge run_sync "$w" sync/index-race); rc=$?
+  expect_code 1 "$rc" "concurrent-index-change refusal"
+  assert_contains "$out" "prepared merge tree does not match the canonical merge" "concurrent index change was not identified"
+  assert_equals "$fork_tip" "$(git -C "$w/repo" rev-parse HEAD)" "concurrent index change advanced the branch"
+  git -C "$w/repo" rev-parse -q --verify MERGE_HEAD >/dev/null || fail "concurrent index refusal discarded MERGE_HEAD"
+  assert_grep "concurrent staged content" "$w/repo/base.txt" "concurrent staged content was not preserved"
+  assert_equals "concurrent staged content" "$(git -C "$w/repo" show :base.txt)" "concurrent index content was not staged"
+  ! printf '%s\n' "$out" | grep -q "upstream-sync: created merge" || fail "concurrent index change reported success"
+  pass "upstream sync: concurrent staged content cannot enter the merge commit"
+}
+
+test_concurrent_ref_change_refuses_cas() {
+  local w out rc fork_tip competitor
+  w=$(new_world ref-race)
+  advance_upstream "$w" upstream.txt upstream-change upstream-change
+  out=$(run_drift "$w") || fail "ref-race drift check failed:$out"
+  make_sync_branch "$w" sync/ref-race
+  fork_tip=$(git -C "$w/repo" rev-parse HEAD)
+  out=$(FM_TEST_RACE_MODE=ref-before-cas run_sync "$w" sync/ref-race); rc=$?
+  expect_code 1 "$rc" "concurrent-ref-change refusal"
+  assert_contains "$out" "reconciliation branch changed before the canonical merge could be published" "concurrent ref change was not identified"
+  competitor=$(cat "$w/race.log")
+  assert_equals "$competitor" "$(git -C "$w/repo" rev-parse HEAD)" "CAS refusal overwrote the competing branch update"
+  assert_equals "$fork_tip" "$(git -C "$w/repo" rev-parse HEAD^1)" "competing branch update did not start from the verified fork tip"
+  git -C "$w/repo" rev-parse -q --verify MERGE_HEAD >/dev/null || fail "CAS refusal discarded MERGE_HEAD"
+  ! printf '%s\n' "$out" | grep -q "upstream-sync: created merge" || fail "concurrent ref change reported success"
+  pass "upstream sync: expected-old-tip publication refuses a branch race"
+}
+
 # --- remote identity, default, availability, and completeness guards --------
 
 test_unexpected_remote_identity_refuses() {
@@ -353,6 +420,8 @@ test_divergence_preserves_both_histories
 test_stale_result_race_refuses
 test_wrong_branch_and_dirty_tree_refuse
 test_conflict_leaves_recoverable_evidence
+test_concurrent_index_change_refuses
+test_concurrent_ref_change_refuses_cas
 test_unexpected_remote_identity_refuses
 test_effective_remote_rewrite_refuses
 test_custom_remote_vcs_refuses

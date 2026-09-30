@@ -17,8 +17,9 @@
 # A repeated run on that exact merge and the no-drift and upstream-behind-fork
 # relationships are successful no-ops. For
 # fork-behind-upstream or divergence, the command runs a normal
-# `git merge --no-ff --no-commit <verified-upstream-tip>` and then creates one
-# real merge commit whose first parent is the fork tip and second parent is the
+# `git merge --no-ff --no-commit <verified-upstream-tip>`, verifies its tree
+# against an isolated merge of the two tips, and atomically publishes one real
+# merge commit whose first parent is the fork tip and second parent is the
 # upstream tip. Fork-only commits therefore remain in ancestry.
 #
 # The command never checks out or writes main, pushes, opens or merges a pull
@@ -284,6 +285,34 @@ ensure_branch_and_clean() {  # <expected-origin-tip> <expected-upstream-tip>
   return 1
 }
 
+canonical_merge_tree() {  # <fork-tip> <upstream-tip>
+  local fork_tip=$1 upstream_tip=$2 output rc normalized
+  if output=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" merge-tree --write-tree --no-messages \
+      "$fork_tip" "$upstream_tip" 2>&1); then
+    :
+  else
+    rc=$?
+    echo "error: could not derive the canonical merge tree from the verified tips (exit $rc)" >&2
+    [ -z "$output" ] || printf '%s\n' "$output" >&2
+    return "$rc"
+  fi
+  case "$output" in
+    ''|*$'\n'*)
+      echo "error: canonical merge computation did not produce one tree" >&2
+      return 1
+      ;;
+  esac
+  normalized=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" rev-parse --verify "$output^{tree}" 2>/dev/null) || {
+    echo "error: canonical merge computation produced invalid tree '$output'" >&2
+    return 1
+  }
+  [ "$normalized" = "$output" ] || {
+    echo "error: canonical merge computation produced non-canonical tree '$output'" >&2
+    return 1
+  }
+  printf '%s\n' "$normalized"
+}
+
 # Refuse obvious local-state hazards before paying for a second network check,
 # then prove the same facts again against the freshly fetched origin tip.
 ensure_branch_and_clean "$R_ORIGIN_TIP" "$R_UPSTREAM_TIP" || exit 1
@@ -308,6 +337,15 @@ ensure_branch_and_clean "$R_ORIGIN_TIP" "$R_UPSTREAM_TIP" || exit 1
 
 printf '%s\n' "$fresh_output"
 if [ "$BRANCH_HEAD_STATE" = reconciled ]; then
+  expected_tree=$(canonical_merge_tree "$R_ORIGIN_TIP" "$R_UPSTREAM_TIP") || exit 1
+  current_tree=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" rev-parse --verify HEAD^{tree}) || {
+    echo "error: could not resolve the current reconciliation tree" >&2
+    exit 1
+  }
+  [ "$current_tree" = "$expected_tree" ] || {
+    echo "error: current exact-parent merge tree does not match the canonical merge of the verified tips" >&2
+    exit 1
+  }
   echo "upstream-sync: no-op; current branch already has exact fork parent $R_ORIGIN_TIP and upstream parent $R_UPSTREAM_TIP"
   exit 0
 fi
@@ -343,20 +381,44 @@ merge_head=$(git -C "$REPO" rev-parse --verify MERGE_HEAD 2>/dev/null || true)
   exit 1
 }
 
-if ! git -C "$REPO" commit -m "Merge upstream main while preserving fork changes"; then
-  echo "error: upstream merge was prepared but could not be committed; recoverable merge state remains for inspection" >&2
+expected_tree=$(canonical_merge_tree "$R_ORIGIN_TIP" "$R_UPSTREAM_TIP") || exit 1
+prepared_tree=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" write-tree 2>/dev/null) || {
+  echo "error: prepared merge index could not be written; recoverable merge state remains for inspection" >&2
+  exit 1
+}
+[ "$prepared_tree" = "$expected_tree" ] || {
+  echo "error: prepared merge tree does not match the canonical merge of the verified tips; no commit was published" >&2
+  exit 1
+}
+
+new_head=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" commit-tree "$expected_tree" \
+  -p "$R_ORIGIN_TIP" -p "$R_UPSTREAM_TIP" \
+  -m "Merge upstream main while preserving fork changes") || {
+  echo "error: canonical merge commit could not be created; recoverable merge state remains for inspection" >&2
+  exit 1
+}
+if ! git -C "$REPO" update-ref -m "merge upstream main while preserving fork changes" \
+    "refs/heads/$BRANCH" "$new_head" "$R_ORIGIN_TIP"; then
+  echo "error: reconciliation branch changed before the canonical merge could be published; no success was recorded" >&2
+  exit 1
+fi
+if ! git -C "$REPO" merge --quit; then
+  echo "error: canonical merge $new_head was published but Git could not clear the completed merge state" >&2
   exit 1
 fi
 
-new_head=$(git -C "$REPO" rev-parse --verify HEAD)
-first_parent=$(git -C "$REPO" rev-parse --verify HEAD^1)
-second_parent=$(git -C "$REPO" rev-parse --verify HEAD^2)
-if git -C "$REPO" rev-parse --verify HEAD^3 >/dev/null 2>&1 \
+published=$(git -C "$REPO" rev-parse --verify "refs/heads/$BRANCH")
+commit_tree=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" rev-parse --verify "$new_head^{tree}")
+first_parent=$(git -C "$REPO" rev-parse --verify "$new_head^1")
+second_parent=$(git -C "$REPO" rev-parse --verify "$new_head^2")
+if [ "$published" != "$new_head" ] \
+  || [ "$commit_tree" != "$expected_tree" ] \
+  || git -C "$REPO" rev-parse --verify "$new_head^3" >/dev/null 2>&1 \
   || [ "$first_parent" != "$R_ORIGIN_TIP" ] \
   || [ "$second_parent" != "$R_UPSTREAM_TIP" ] \
   || ! GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" merge-base --is-ancestor "$R_ORIGIN_TIP" "$new_head" \
   || ! GIT_NO_REPLACE_OBJECTS=1 git -C "$REPO" merge-base --is-ancestor "$R_UPSTREAM_TIP" "$new_head"; then
-  echo "error: created commit $new_head failed the exact two-parent ancestry proof; stop and inspect it" >&2
+  echo "error: created commit $new_head failed the exact tree, ref, or two-parent ancestry proof; stop and inspect it" >&2
   exit 1
 fi
 
