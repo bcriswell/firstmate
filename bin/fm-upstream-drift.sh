@@ -154,7 +154,7 @@ remote_raw_url() {  # <remote>
 }
 
 verify_remote_url() {  # <remote> <expected-url>
-  local remote=$1 expected=$2 urls effective_url push_urls
+  local remote=$1 expected=$2 urls effective_url vcs push_urls
   urls=$(remote_raw_url "$remote")
   case "$urls" in
     "$expected") ;;
@@ -179,6 +179,11 @@ verify_remote_url() {  # <remote> <expected-url>
       return 1
       ;;
   esac
+  vcs=$(git -C "$REPO" config --get-all "remote.$remote.vcs" 2>/dev/null || true)
+  [ -z "$vcs" ] || {
+    echo "error: remote '$remote' has an unexpected VCS helper (configured: $(printf '%s' "$vcs" | tr '\n' ' '))" >&2
+    return 1
+  }
   push_urls=$(git -C "$REPO" config --get-all "remote.$remote.pushurl" 2>/dev/null || true)
   case "$push_urls" in
     ''|"$expected") ;;

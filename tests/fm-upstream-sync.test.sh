@@ -303,6 +303,18 @@ test_effective_remote_rewrite_refuses() {
   pass "upstream drift: URL rewriting cannot bypass canonical remote identity"
 }
 
+test_custom_remote_vcs_refuses() {
+  local w out rc
+  w=$(new_world custom-vcs)
+  git -C "$w/repo" config remote.upstream.vcs fm-test-helper
+  out=$(run_drift "$w"); rc=$?
+  expect_code 1 "$rc" "custom-remote-vcs refusal"
+  assert_contains "$out" "remote 'upstream' has an unexpected VCS helper" "custom remote VCS helper was not named"
+  [ ! -e "$w/drift.result" ] || fail "custom remote VCS helper published a result"
+  [ ! -e "$w/transport.log" ] || fail "custom remote VCS helper reached a live remote operation"
+  pass "upstream drift: custom VCS helpers cannot bypass remote identity"
+}
+
 test_unexpected_default_and_unavailable_remote_refuse() {
   local w out rc
   w=$(new_world bad-default)
@@ -343,5 +355,6 @@ test_wrong_branch_and_dirty_tree_refuse
 test_conflict_leaves_recoverable_evidence
 test_unexpected_remote_identity_refuses
 test_effective_remote_rewrite_refuses
+test_custom_remote_vcs_refuses
 test_unexpected_default_and_unavailable_remote_refuse
 test_shallow_history_refuses
