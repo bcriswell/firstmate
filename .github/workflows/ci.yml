@@ -437,6 +437,8 @@ jobs:
           done < "$shell_inventory"
           [ "$parse_fail" -eq 0 ] || { echo "::error::stock macOS Bash 3.2 parse sweep failed"; exit 1; }
 
+          /bin/bash bin/fm-test-run.sh tests/fm-timeout-lib.test.sh
+
           command -v npm >/dev/null || { echo "::error::npm is required to install tasks-axi"; exit 1; }
           npm install -g tasks-axi@0.2.6 >/dev/null
           PATH="$(npm prefix -g)/bin:$PATH"

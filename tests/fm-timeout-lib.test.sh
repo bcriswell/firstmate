@@ -102,24 +102,27 @@ test_kill_ends_a_term_ignoring_command_after_the_grace() {
 # replaced by the bounding process, whose child the command is. This holds for
 # whichever mechanism the host selects, and for the perl watchdog explicitly.
 test_the_bound_replaces_the_calling_shell() {
-  local dir path caller parent current_pid
+  local dir path mode caller parent current_pid
   dir="$TMP_ROOT/replace"
   mkdir -p "$dir"
-  for path in "$PATH" "$PERL_ONLY"; do
-    rm -f "$dir/caller" "$dir/parent"
-    (
-      . "$ROOT/bin/fm-timeout-lib.sh"
-      current_pid=${BASHPID:-}
-      [ -n "$current_pid" ] || current_pid=$(exec bash -c 'printf "%s\n" "$PPID"')
-      printf '%s\n' "$current_pid" > "$dir/caller"
-      PATH=$path fm_exec_timed 5 1 bash -c 'echo "$PPID" > "$1"' _ "$dir/parent"
-    ) || fail "the bounded probe failed under PATH=$path"
-    caller=$(cat "$dir/caller")
-    parent=$(cat "$dir/parent")
-    [ "$caller" = "$parent" ] \
-      || fail "the command's parent $parent is not the replaced caller $caller under PATH=$path"
+  for mode in automatic forced-fallback; do
+    for path in "$PATH" "$PERL_ONLY"; do
+      rm -f "$dir/caller" "$dir/parent"
+      (
+        . "$ROOT/bin/fm-timeout-lib.sh"
+        [ "$mode" = automatic ] || unset BASHPID
+        current_pid=${BASHPID:-}
+        [ -n "$current_pid" ] || current_pid=$(exec bash -c 'printf "%s\n" "$PPID"')
+        printf '%s\n' "$current_pid" > "$dir/caller"
+        PATH=$path fm_exec_timed 5 1 bash -c 'echo "$PPID" > "$1"' _ "$dir/parent"
+      ) || fail "the $mode bounded probe failed under PATH=$path"
+      caller=$(cat "$dir/caller")
+      parent=$(cat "$dir/parent")
+      [ "$caller" = "$parent" ] \
+        || fail "the $mode command's parent $parent is not the replaced caller $caller under PATH=$path"
+    done
   done
-  pass "fm_exec_timed replaces the calling shell instead of wrapping it"
+  pass "fm_exec_timed replaces the caller through automatic and forced fallback PID probes"
 }
 
 # The regression a direct-child watchdog had: the command dies at the bound
