@@ -154,7 +154,7 @@ remote_raw_url() {  # <remote>
 }
 
 verify_remote_url() {  # <remote> <expected-url>
-  local remote=$1 expected=$2 urls push_urls
+  local remote=$1 expected=$2 urls effective_url push_urls
   urls=$(remote_raw_url "$remote")
   case "$urls" in
     "$expected") ;;
@@ -164,6 +164,18 @@ verify_remote_url() {  # <remote> <expected-url>
       ;;
     *)
       echo "error: remote '$remote' must have exactly URL '$expected' (configured: $(printf '%s' "$urls" | tr '\n' ' '))" >&2
+      return 1
+      ;;
+  esac
+  effective_url=$(git -C "$REPO" remote get-url "$remote" 2>/dev/null || true)
+  case "$effective_url" in
+    "$expected") ;;
+    '')
+      echo "error: remote '$remote' effective fetch URL could not be resolved" >&2
+      return 1
+      ;;
+    *)
+      echo "error: remote '$remote' effective fetch URL must be '$expected' (resolved: '$effective_url')" >&2
       return 1
       ;;
   esac

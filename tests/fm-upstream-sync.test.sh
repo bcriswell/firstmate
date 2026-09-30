@@ -2,8 +2,8 @@
 # Public-interface coverage for the guarded Firstmate fork/upstream drift check
 # and manual ancestry-preserving reconciliation command.
 #
-# Every fixture configures the real canonical remote URLs, then uses repository-
-# local Git URL rewriting to route network-shaped operations to isolated bare
+# Every fixture configures the real canonical remote URLs, while a PATH-scoped
+# Git transport routes only the commands' live reads and fetches to isolated bare
 # repositories. Tests therefore exercise the operator commands, live remote HEAD
 # discovery, fetches, result binding, branch guards, merge behavior, and conflict
 # recovery without parsing implementation source or reaching public remotes.
@@ -20,6 +20,41 @@ UPSTREAM_URL=https://github.com/kunchenguid/firstmate.git
 fm_git_identity fmtest fmtest@example.invalid
 TMP_ROOT=$(fm_test_tmproot fm-upstream-sync-tests)
 WORLD_N=0
+REAL_GIT=$(command -v git)
+FAKE_GIT_DIR="$TMP_ROOT/fake-git"
+mkdir -p "$FAKE_GIT_DIR"
+cat > "$FAKE_GIT_DIR/git" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+
+if [ "$#" -ge 5 ] && [ "$1" = -C ] && [ "$2" = "$FM_TEST_REPO" ]; then
+  repo=$2
+  case "$3:$4" in
+    ls-remote:--symref)
+      case "$5" in
+        origin) transport=$FM_TEST_ORIGIN ;;
+        upstream) transport=$FM_TEST_UPSTREAM ;;
+        *) exec "$FM_TEST_REAL_GIT" "$@" ;;
+      esac
+      printf 'ls-remote %s\n' "$5" >> "$FM_TEST_TRANSPORT_LOG"
+      shift 5
+      exec "$FM_TEST_REAL_GIT" -C "$repo" ls-remote --symref "$transport" "$@"
+      ;;
+    fetch:--no-tags)
+      case "$5" in
+        origin) transport=$FM_TEST_ORIGIN ;;
+        upstream) transport=$FM_TEST_UPSTREAM ;;
+        *) exec "$FM_TEST_REAL_GIT" "$@" ;;
+      esac
+      printf 'fetch %s\n' "$5" >> "$FM_TEST_TRANSPORT_LOG"
+      shift 5
+      exec "$FM_TEST_REAL_GIT" -C "$repo" fetch --no-tags "$transport" "$@"
+      ;;
+  esac
+fi
+exec "$FM_TEST_REAL_GIT" "$@"
+EOF
+chmod +x "$FAKE_GIT_DIR/git"
 
 commit_file() {  # <repo> <file> <content> <message>
   local repo=$1 file=$2 content=$3 message=$4
@@ -50,8 +85,6 @@ new_world() {
 
   git -C "$w/repo" remote set-url origin "$ORIGIN_URL"
   git -C "$w/repo" remote add upstream "$UPSTREAM_URL"
-  git -C "$w/repo" config "url.file://$w/fork.git.insteadOf" "$ORIGIN_URL"
-  git -C "$w/repo" config "url.file://$w/upstream.git.insteadOf" "$UPSTREAM_URL"
   printf '%s\n' "$w"
 }
 
@@ -71,7 +104,18 @@ advance_upstream() {  # <world> <file> <content> <message>
 
 run_drift() {  # <world>
   local w=$1
-  "$DRIFT" --repo "$w/repo" --result "$w/drift.result" 2>&1
+  run_drift_for_repo "$w" "$w/repo" "$w/drift.result"
+}
+
+run_drift_for_repo() {  # <world> <repo> <result>
+  local w=$1 repo=$2 result=$3
+  PATH="$FAKE_GIT_DIR:$PATH" \
+    FM_TEST_REAL_GIT="$REAL_GIT" \
+    FM_TEST_REPO="$repo" \
+    FM_TEST_ORIGIN="$w/fork.git" \
+    FM_TEST_UPSTREAM="$w/upstream.git" \
+    FM_TEST_TRANSPORT_LOG="$w/transport.log" \
+    "$DRIFT" --repo "$repo" --result "$result" 2>&1
 }
 
 make_sync_branch() {  # <world> <branch>
@@ -80,7 +124,13 @@ make_sync_branch() {  # <world> <branch>
 
 run_sync() {  # <world> <branch>
   local w=$1 branch=$2
-  "$SYNC" --repo "$w/repo" --result "$w/drift.result" --branch "$branch" 2>&1
+  PATH="$FAKE_GIT_DIR:$PATH" \
+    FM_TEST_REAL_GIT="$REAL_GIT" \
+    FM_TEST_REPO="$w/repo" \
+    FM_TEST_ORIGIN="$w/fork.git" \
+    FM_TEST_UPSTREAM="$w/upstream.git" \
+    FM_TEST_TRANSPORT_LOG="$w/transport.log" \
+    "$SYNC" --repo "$w/repo" --result "$w/drift.result" --branch "$branch" 2>&1
 }
 
 assert_relationship() {  # <world> <relationship>
@@ -241,6 +291,18 @@ test_unexpected_remote_identity_refuses() {
   pass "upstream drift: unexpected remote identity refuses before fetch"
 }
 
+test_effective_remote_rewrite_refuses() {
+  local w out rc
+  w=$(new_world rewritten-url)
+  git -C "$w/repo" config "url.file://$w/upstream.git.insteadOf" "$UPSTREAM_URL"
+  out=$(run_drift "$w"); rc=$?
+  expect_code 1 "$rc" "effective-remote-rewrite refusal"
+  assert_contains "$out" "remote 'upstream' effective fetch URL must be '$UPSTREAM_URL'" "effective remote rewrite was not named"
+  [ ! -e "$w/drift.result" ] || fail "effective remote rewrite published a result"
+  [ ! -e "$w/transport.log" ] || fail "effective remote rewrite reached a live remote operation"
+  pass "upstream drift: URL rewriting cannot bypass canonical remote identity"
+}
+
 test_unexpected_default_and_unavailable_remote_refuse() {
   local w out rc
   w=$(new_world bad-default)
@@ -265,9 +327,7 @@ test_shallow_history_refuses() {
   git clone -q --depth 1 "file://$w/fork.git" "$shallow"
   git -C "$shallow" remote set-url origin "$ORIGIN_URL"
   git -C "$shallow" remote add upstream "$UPSTREAM_URL"
-  git -C "$shallow" config "url.file://$w/fork.git.insteadOf" "$ORIGIN_URL"
-  git -C "$shallow" config "url.file://$w/upstream.git.insteadOf" "$UPSTREAM_URL"
-  out=$("$DRIFT" --repo "$shallow" --result "$w/shallow.result" 2>&1); rc=$?
+  out=$(run_drift_for_repo "$w" "$shallow" "$w/shallow.result"); rc=$?
   expect_code 1 "$rc" "shallow-history refusal"
   assert_contains "$out" "history is shallow" "shallow-history refusal was not concrete"
   [ ! -e "$w/shallow.result" ] || fail "shallow history published a result"
@@ -282,5 +342,6 @@ test_stale_result_race_refuses
 test_wrong_branch_and_dirty_tree_refuse
 test_conflict_leaves_recoverable_evidence
 test_unexpected_remote_identity_refuses
+test_effective_remote_rewrite_refuses
 test_unexpected_default_and_unavailable_remote_refuse
 test_shallow_history_refuses
