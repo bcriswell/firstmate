@@ -1,0 +1,1 @@
+{"triggers":{"push":{"branches":["main"]},"pull_request":{"branches":["main"]}},"schedule_enabled":false}

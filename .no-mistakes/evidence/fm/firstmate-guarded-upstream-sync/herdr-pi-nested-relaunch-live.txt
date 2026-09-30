@@ -1,0 +1,29 @@
+FM_TEST_BEGIN 2026-09-30T19:28:05Z tests/fm-herdr-pi-stale-registration-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
+# pi 0.99.1 under herdr 0.9.2: registered idle, foreground [{"name":"node","argv0":"pi"}]
+ok - real herdr 0.9.2 + pi 0.99.1: a running registered pi classifies alive at process level
+# herdr 0.9.2 kept the pi registration (idle) after /quit under a nested shell: the stale-registration branch is exercised
+ok - real herdr 0.9.2 + pi 0.99.1: the registration left behind by a quit pi reads stale-agent and recovers as dead
+ok - real herdr 0.9.2 + pi 0.99.1: a completed Pi relaunches from Treehouse's nested idle shell in the same endpoint and isolated worktree
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/pre-rebase: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/pre-applypatch: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/pre-auto-gc: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/pre-merge-commit: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/post-commit: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/sendemail-validate: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/applypatch-msg: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/prepare-commit-msg: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/post-checkout: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/post-applypatch: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/post-rewrite: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/commit-msg: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/pre-push: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/post-merge: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks/pre-commit: Permission denied
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state/pi-nested-relaunch.git-hooks: Directory not empty
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home/state: Directory not empty
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM/home: Directory not empty
+rm: /var/folders/b0/ybqjt4l11rn_32mnbzbh31_w0000gn/T/fm-pi-stale.1LmlUM: Directory not empty
+FM_TEST_END 2026-09-30T19:28:23Z tests/fm-herdr-pi-stale-registration-live-e2e.test.sh exit=0 duration_ms=18411 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=18591
+FM_TEST_SUMMARY_FAMILY family=live-harness-optin count=1 duration_ms=18411 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-herdr-pi-stale-registration-live-e2e.test.sh duration_ms=18411
